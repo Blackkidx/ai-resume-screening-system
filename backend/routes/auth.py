@@ -158,29 +158,51 @@ async def login_user(login_data: UserLoginRequest):
 # GET CURRENT USER - ดูข้อมูลตัวเอง
 # =============================================================================
 
-@router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user_id: str = Depends(get_current_user_id)):
-    """ดูข้อมูลผู้ใช้ปัจจุบัน"""
-    db = get_database()
-    
-    user = await db.users.find_one({"_id": ObjectId(current_user_id)})
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    return UserResponse(
-        id=str(user["_id"]),
-        username=user["username"],
-        email=user["email"],
-        full_name=user["full_name"],
-        phone=user.get("phone"),
-        user_type=UserType(user["user_type"]),
-        is_active=user["is_active"],
-        created_at=user["created_at"]
-    )
+# ในไฟล์ routes/auth.py หา endpoint /auth/me
 
+# ในไฟล์ routes/auth.py หา endpoint /auth/me
+
+@router.get("/me")
+async def get_current_user_info(user_id: str = Depends(get_current_user_id)):
+    """Get current user information"""
+    from core.database import get_database
+    from bson.objectid import ObjectId  # ✅ ใช้ pymongo.bson
+    
+    try:
+        db = get_database()
+        
+        # ✅ แก้ไข: ลองทั้ง ObjectId และ string
+        try:
+            # ลอง ObjectId ก่อน (MongoDB default)
+            user = await db.users.find_one({"_id": ObjectId(user_id)})
+        except:
+            # ถ้าไม่ได้ ลอง string
+            user = await db.users.find_one({"_id": user_id})
+        
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+        
+        # Convert ObjectId to string for JSON response
+        if "_id" in user:
+            user["id"] = str(user["_id"])
+            del user["_id"]
+        
+        # Remove sensitive data
+        if "hashed_password" in user:
+            del user["hashed_password"]
+        
+        return user
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error: {str(e)}"
+        )
 # =============================================================================
 # CHANGE PASSWORD - เปลี่ยนรหัสผ่าน
 # =============================================================================

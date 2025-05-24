@@ -65,7 +65,7 @@ async def close_mongo_connection():
     """
     global database_client
     
-    if database_client:
+    if database_client is not None:  # ✅ แก้ไขแล้ว - ใช้ is not None
         database_client.close()
         print("🔌 Disconnected from MongoDB Atlas")
 
@@ -76,7 +76,7 @@ async def test_connection():
     - return status และ message
     """
     try:
-        if not database_client:
+        if database_client is None:  # ✅ แก้ไขแล้ว - ใช้ is None แทน not
             return {
                 "status": "unhealthy", 
                 "message": "Database client not connected"
@@ -104,7 +104,7 @@ def get_database():
     """
     ได้ database instance สำหรับใช้ใน routes อื่น ๆ
     """
-    if not database:
+    if database is None:  # ✅ แก้ไขแล้ว - ใช้ is None แทน not
         raise Exception("Database not connected. Call connect_to_mongo() first.")
     return database
 
@@ -112,7 +112,7 @@ def get_client():
     """
     ได้ database client สำหรับใช้งานระดับ admin
     """
-    if not database_client:
+    if database_client is None:  # ✅ แก้ไขแล้ว - ใช้ is None แทน not
         raise Exception("Database client not connected. Call connect_to_mongo() first.")
     return database_client
 
@@ -159,3 +159,12 @@ async def test_read_data():
     except Exception as e:
         print(f"❌ Failed to read test data: {e}")
         return {"success": False, "error": str(e)}
+
+# =============================================================================
+# COMPATIBILITY FUNCTIONS 🔄 - สำหรับ backward compatibility
+# =============================================================================
+async def check_database_health():
+    """
+    Alias สำหรับ test_connection() เพื่อความเข้ากันได้กับโค้ดเก่า
+    """
+    return await test_connection()

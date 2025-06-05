@@ -1,39 +1,46 @@
+# =============================================================================
+# 🔐 AUTHENTICATION UTILITIES
+# =============================================================================
 import os
-import jwt
 from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
+from jose import JWTError, jwt
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# JWT Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here-change-in-production")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# =============================================================================
+# CONFIGURATION 📊
+# =============================================================================
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "ai-resume-secret-key-2025-super-secure-jwt-token")
+ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))
 
-# Password hashing
+# Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# HTTP Bearer for token authentication
+# HTTP Bearer for token extraction
 security = HTTPBearer()
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against its hash"""
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password: str) -> str:
-    """Hash a password"""
+# =============================================================================
+# PASSWORD FUNCTIONS 🔑
+# =============================================================================
+def hash_password(password: str) -> str:
+    """เข้ารหัสรหัสผ่าน"""
     return pwd_context.hash(password)
 
-# Alias for backward compatibility
-def hash_password(password: str) -> str:
-    """Hash a password (alias for get_password_hash)"""
-    return get_password_hash(password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """ตรวจสอบรหัสผ่าน"""
+    return pwd_context.verify(plain_password, hashed_password)
 
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    """Create JWT access token"""
+# =============================================================================
+# JWT TOKEN FUNCTIONS 🎫
+# =============================================================================
+def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    """สร้าง JWT access token"""
     to_encode = data.copy()
     
     if expires_delta:
@@ -45,105 +52,120 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def decode_access_token(token: str):
-    """Decode JWT access token"""
+def decode_access_token(token: str) -> Dict[str, Any]:
+    """ถอดรหัส JWT token"""
     try:
-        # Remove 'Bearer ' prefix if present (multiple ways)
-        if token.startswith("Bearer "):
-            token = token[7:]
-        elif token.startswith("bearer "):
-            token = token[7:]
-        
-        # Debug: print token info
-        print(f"🔍 Decoding token: {token[:50]}...")
-        print(f"🔍 Token length: {len(token)}")
-        
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print(f"✅ Token decoded successfully: {payload.get('username', 'unknown')}")
         return payload
-        
-    except jwt.ExpiredSignatureError:
-        print("❌ Token expired")
+    except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except jwt.DecodeError as e:
-        print(f"❌ Token decode error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token format",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except jwt.InvalidTokenError as e:
-        print(f"❌ Invalid token: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except Exception as e:
-        print(f"❌ Unexpected error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Token validation failed: {str(e)}",
+            detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Get current user ID from JWT token"""
-    token = credentials.credentials
-    
-    # ✅ แก้ไขใหม่ - ไม่ใช้ try-except ซ้อน
-    payload = decode_access_token(token)  # จะ raise HTTPException ถ้ามีปัญหา
-    
-    user_id: str = payload.get("sub")
-    
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token: no user ID",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    return user_id
-
-# Optional: Get current user object (if you need full user data)
-async def get_current_user(user_id: str = Depends(get_current_user_id)):
-    """Get current user object from database"""
-    from core.database import get_database
-    from bson.objectid import ObjectId  # ✅ ใช้ pymongo.bson แทน
-    
+# =============================================================================
+# DEPENDENCY FUNCTIONS 🔗
+# =============================================================================
+async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    """ดึง user_id ของผู้ใช้ปัจจุบันจาก JWT token"""
     try:
-        db = get_database()
+        payload = decode_access_token(credentials.credentials)
+        user_id: str = payload.get("sub")
         
-        # ✅ แก้ไข: ลองทั้ง ObjectId และ string
-        try:
-            # ลอง ObjectId ก่อน
-            user = await db.users.find_one({"_id": ObjectId(user_id)})
-        except:
-            # ถ้าไม่ได้ ลอง string
-            user = await db.users.find_one({"_id": user_id})
-        
-        if user is None:
+        if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
+                detail="Could not validate credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        # Convert ObjectId to string for JSON serialization
-        if "_id" in user:
-            user["id"] = str(user["_id"])
-            del user["_id"]
+        return user_id
         
-        return user
-        
-    except HTTPException:
-        raise
-    except Exception as e:
+    except JWTError:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database error: {str(e)}"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
         )
+
+async def get_current_user_data(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+    """ดึงข้อมูลผู้ใช้ปัจจุบันทั้งหมดจาก JWT token"""
+    try:
+        payload = decode_access_token(credentials.credentials)
+        
+        if payload.get("sub") is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        return payload
+        
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+# =============================================================================
+# ROLE-BASED ACCESS CONTROL 👥
+# =============================================================================
+def require_role(allowed_roles: list):
+    """Decorator สำหรับตรวจสอบ role ของผู้ใช้"""
+    async def role_checker(user_data: Dict[str, Any] = Depends(get_current_user_data)):
+        user_type = user_data.get("user_type")
+        
+        if user_type not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required roles: {allowed_roles}"
+            )
+        
+        return user_data
+    
+    return role_checker
+
+# Specific role checkers
+async def require_admin(user_data: Dict[str, Any] = Depends(get_current_user_data)):
+    """ต้องเป็น Admin เท่านั้น"""
+    if user_data.get("user_type") != "Admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    return user_data
+
+async def require_hr_or_admin(user_data: Dict[str, Any] = Depends(get_current_user_data)):
+    """ต้องเป็น HR หรือ Admin"""
+    user_type = user_data.get("user_type")
+    if user_type not in ["HR", "Admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="HR or Admin access required"
+        )
+    return user_data
+
+# =============================================================================
+# TOKEN VALIDATION 🔍
+# =============================================================================
+def validate_token(token: str) -> bool:
+    """ตรวจสอบว่า token ยังใช้งานได้หรือไม่"""
+    try:
+        payload = decode_access_token(token)
+        return True
+    except HTTPException:
+        return False
+
+def get_token_expiry(token: str) -> Optional[datetime]:
+    """ดึงเวลาหมดอายุของ token"""
+    try:
+        payload = decode_access_token(token)
+        exp_timestamp = payload.get("exp")
+        if exp_timestamp:
+            return datetime.fromtimestamp(exp_timestamp)
+        return None
+    except HTTPException:
+        return None

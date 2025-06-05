@@ -1,5 +1,5 @@
 # =============================================================================
-# FIXED DATABASE CONNECTION 🗄️ (แก้ไข Motor error แล้ว)
+# FIXED DATABASE CONNECTION 🗄️ (แก้ไข Motor error แล้ว - ใช้ connection string จัดการ SSL)
 # Phase 1: เชื่อมต่อ MongoDB Atlas เบื้องต้น
 # =============================================================================
 import os
@@ -39,11 +39,12 @@ async def connect_to_mongo():
         print(f"🔄 Connecting to MongoDB Atlas...")
         print(f"📁 Database name: {DATABASE_NAME}")
         
-        # สร้างการเชื่อมต่อ
+        # สร้างการเชื่อมต่อแบบง่าย - ให้ connection string จัดการ SSL
         database_client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
+        
         database = database_client[DATABASE_NAME]
         
-        # ทดสอบการเชื่อมต่อด้วยคำสั่ง ping (แก้ไข: ใช้ database_client แทน database)
+        # ทดสอบการเชื่อมต่อด้วยคำสั่ง ping
         await database_client.admin.command('ping')
         
         print("✅ Connected to MongoDB Atlas successfully!")
@@ -65,7 +66,7 @@ async def close_mongo_connection():
     """
     global database_client
     
-    if database_client is not None:  # ✅ แก้ไขแล้ว - ใช้ is not None
+    if database_client is not None:
         database_client.close()
         print("🔌 Disconnected from MongoDB Atlas")
 
@@ -76,13 +77,13 @@ async def test_connection():
     - return status และ message
     """
     try:
-        if database_client is None:  # ✅ แก้ไขแล้ว - ใช้ is None แทน not
+        if database_client is None:
             return {
                 "status": "unhealthy", 
                 "message": "Database client not connected"
             }
         
-        # ทดสอบด้วยคำสั่ง ping (แก้ไข: ใช้ database_client แทน database)
+        # ทดสอบด้วยคำสั่ง ping
         result = await database_client.admin.command('ping')
         
         return {
@@ -104,7 +105,7 @@ def get_database():
     """
     ได้ database instance สำหรับใช้ใน routes อื่น ๆ
     """
-    if database is None:  # ✅ แก้ไขแล้ว - ใช้ is None แทน not
+    if database is None:
         raise Exception("Database not connected. Call connect_to_mongo() first.")
     return database
 
@@ -112,7 +113,7 @@ def get_client():
     """
     ได้ database client สำหรับใช้งานระดับ admin
     """
-    if database_client is None:  # ✅ แก้ไขแล้ว - ใช้ is None แทน not
+    if database_client is None:
         raise Exception("Database client not connected. Call connect_to_mongo() first.")
     return database_client
 
@@ -130,7 +131,7 @@ async def test_insert_data():
         # ทดสอบใส่ข้อมูลในตาราง test_collection
         test_data = {
             "message": "Hello from AI Resume Screening System!",
-            "timestamp": "2025-05-19",
+            "timestamp": "2025-06-05",
             "test": True
         }
         

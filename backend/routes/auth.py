@@ -1,6 +1,4 @@
-# =============================================================================
-# SIMPLE AUTHENTICATION ROUTES 🔐
-# =============================================================================
+# แทนที่ไฟล์ backend/routes/auth.py เดิม
 from fastapi import APIRouter, HTTPException, status, Depends
 from datetime import datetime
 from bson import ObjectId
@@ -20,13 +18,69 @@ from core.database import get_database
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # =============================================================================
-# REGISTER - สมัครสมาชิก (Student only)
+# INITIALIZE USER ROLES - สร้าง default roles
 # =============================================================================
+async def ensure_user_roles_exist(db):
+    """ตรวจสอบและสร้าง default user roles"""
+    try:
+        # ตรวจสอบว่ามี roles อยู่แล้วหรือไม่
+        existing_roles = await db.user_roles.count_documents({})
+        
+        if existing_roles == 0:
+            # สร้าง default roles
+            default_roles = [
+                {
+                    "role_name": "Student",
+                    "description": "นักศึกษาที่มาฝึกงาน",
+                    "permissions": {
+                        "can_upload_resume": True,
+                        "can_view_jobs": True,
+                        "can_apply_jobs": True,
+                        "can_view_profile": True
+                    },
+                    "created_at": datetime.utcnow()
+                },
+                {
+                    "role_name": "HR",
+                    "description": "เจ้าหน้าที่ HR ของบริษัท",
+                    "permissions": {
+                        "can_create_jobs": True,
+                        "can_view_resumes": True,
+                        "can_screen_candidates": True,
+                        "can_manage_interviews": True
+                    },
+                    "created_at": datetime.utcnow()
+                },
+                {
+                    "role_name": "Admin",
+                    "description": "ผู้ดูแลระบบ",
+                    "permissions": {
+                        "can_manage_users": True,
+                        "can_manage_companies": True,
+                        "can_view_analytics": True,
+                        "can_manage_system": True
+                    },
+                    "created_at": datetime.utcnow()
+                }
+            ]
+            
+            # บันทึก roles ลง database
+            await db.user_roles.insert_many(default_roles)
+            print("✅ Created default user roles")
+        
+    except Exception as e:
+        print(f"⚠️ Error creating user roles: {e}")
 
+# =============================================================================
+# REGISTER - สมัครสมาชิก (Student only) + บันทึก role
+# =============================================================================
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(user_data: UserRegisterRequest):
     """สมัครสมาชิก - เฉพาะนักศึกษาเท่านั้น"""
     db = get_database()
+    
+    # ตรวจสอบและสร้าง user roles หากยังไม่มี
+    await ensure_user_roles_exist(db)
     
     # บังคับให้เป็น Student เท่านั้น
     if user_data.user_type != UserType.STUDENT:
@@ -70,11 +124,35 @@ async def register_user(user_data: UserRegisterRequest):
         "last_login": None
     }
     
-    # บันทึกลง database
+    # บันทึก user ลง database
     result = await db.users.insert_one(user_doc)
+    user_id = result.inserted_id
+    
+    # ⭐ เพิ่ม: บันทึก user role mapping
+    try:
+        # หา role_id ของ Student
+        student_role = await db.user_roles.find_one({"role_name": "Student"})
+        
+        if student_role:
+            # สร้าง user-role mapping
+            user_role_mapping = {
+                "user_id": user_id,
+                "role_id": student_role["_id"],
+                "role_name": "Student",
+                "assigned_at": datetime.utcnow(),
+                "assigned_by": "system"  # ระบบสมัครเอง
+            }
+            
+            # บันทึกลง user_role_assignments collection
+            await db.user_role_assignments.insert_one(user_role_mapping)
+            print(f"✅ Assigned Student role to user {user_data.username}")
+        
+    except Exception as e:
+        print(f"⚠️ Failed to assign role: {e}")
+        # ไม่ให้ error นี้หยุดการสมัครสมาชิก
     
     # ดึงข้อมูล user ที่สร้างแล้ว
-    created_user = await db.users.find_one({"_id": result.inserted_id})
+    created_user = await db.users.find_one({"_id": user_id})
     
     # Return response
     return UserResponse(
@@ -91,7 +169,6 @@ async def register_user(user_data: UserRegisterRequest):
 # =============================================================================
 # LOGIN - เข้าสู่ระบบ (All roles)
 # =============================================================================
-
 @router.post("/login", response_model=TokenResponse)
 async def login_user(login_data: UserLoginRequest):
     """เข้าสู่ระบบ - ทุก Role"""
@@ -119,11 +196,26 @@ async def login_user(login_data: UserLoginRequest):
             detail="Account is deactivated"
         )
     
+    # ⭐ เพิ่ม: ดึงข้อมูล role ของ user
+    user_roles = []
+    try:
+        role_assignments = await db.user_role_assignments.find(
+            {"user_id": user["_id"]}
+        ).to_list(length=10)
+        
+        user_roles = [assignment["role_name"] for assignment in role_assignments]
+        
+    except Exception as e:
+        print(f"⚠️ Failed to get user roles: {e}")
+        # ใช้ user_type จาก user document แทน
+        user_roles = [user.get("user_type", "Student")]
+    
     # สร้าง JWT token
     token_data = {
         "sub": str(user["_id"]),
         "username": user["username"],
         "user_type": user["user_type"],
+        "roles": user_roles,  # เพิ่ม roles ใน token
         "email": user["email"]
     }
     
@@ -155,56 +247,58 @@ async def login_user(login_data: UserLoginRequest):
     )
 
 # =============================================================================
-# GET CURRENT USER - ดูข้อมูลตัวเอง
+# GET CURRENT USER - ดูข้อมูลตัวเอง + roles
 # =============================================================================
-
-# ในไฟล์ routes/auth.py หา endpoint /auth/me
-
-# ในไฟล์ routes/auth.py หา endpoint /auth/me
-
 @router.get("/me")
 async def get_current_user_info(user_id: str = Depends(get_current_user_id)):
-    """Get current user information"""
-    from core.database import get_database
-    from bson.objectid import ObjectId  # ✅ ใช้ pymongo.bson
-    
+    """Get current user information พร้อม roles"""
     try:
         db = get_database()
         
-        # ✅ แก้ไข: ลองทั้ง ObjectId และ string
+        # ดึงข้อมูล user
         try:
-            # ลอง ObjectId ก่อน (MongoDB default)
             user = await db.users.find_one({"_id": ObjectId(user_id)})
         except:
-            # ถ้าไม่ได้ ลอง string
             user = await db.users.find_one({"_id": user_id})
         
         if not user:
-            raise HTTPException(
-                status_code=404,
-                detail="User not found"
-            )
+            raise HTTPException(status_code=404, detail="User not found")
         
-        # Convert ObjectId to string for JSON response
-        if "_id" in user:
-            user["id"] = str(user["_id"])
-            del user["_id"]
+        # ดึงข้อมูล roles
+        user_roles = []
+        try:
+            role_assignments = await db.user_role_assignments.find(
+                {"user_id": user["_id"]}
+            ).to_list(length=10)
+            
+            user_roles = [assignment["role_name"] for assignment in role_assignments]
+            
+        except Exception as e:
+            print(f"⚠️ Failed to get user roles: {e}")
+            user_roles = [user.get("user_type", "Student")]
         
-        # Remove sensitive data
-        if "hashed_password" in user:
-            del user["hashed_password"]
+        # เตรียมข้อมูลส่งกลับ
+        user_data = {
+            "id": str(user["_id"]),
+            "username": user["username"],
+            "email": user["email"],
+            "full_name": user["full_name"],
+            "phone": user.get("phone"),
+            "user_type": user["user_type"],
+            "roles": user_roles,  # เพิ่ม roles
+            "is_active": user["is_active"],
+            "created_at": user["created_at"]
+        }
         
-        return user
+        return user_data
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
 # =============================================================================
-# CHANGE PASSWORD - เปลี่ยนรหัสผ่าน
+# เหลือเหมือนเดิม...
 # =============================================================================
 
 @router.post("/change-password")
@@ -245,10 +339,6 @@ async def change_password(
     )
     
     return {"message": "Password changed successfully"}
-
-# =============================================================================
-# LOGOUT - ออกจากระบบ
-# =============================================================================
 
 @router.post("/logout")
 async def logout_user():

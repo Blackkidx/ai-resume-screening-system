@@ -1,12 +1,18 @@
+// frontend/src/components/Login/Login.jsx
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import authService from '../../services/authService';
 import '../../styles/login.css';
 
 const Login = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: '',
     rememberMe: false
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -14,12 +20,41 @@ const Login = () => {
       ...prevState,
       [name]: type === 'checkbox' ? checked : value
     }));
+    // ล้าง error เมื่อผู้ใช้เริ่มพิมพ์ใหม่
+    if (error) setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Login attempt:', formData);
-    // ในอนาคตจะเชื่อมต่อกับ API
+    setLoading(true);
+    setError('');
+
+    try {
+      // ✅ เรียก API login
+      const result = await authService.login({
+        username: formData.username,
+        password: formData.password
+      });
+
+      if (result.success) {
+        // ✅ Login สำเร็จ
+        console.log('Login successful:', result.data.user_info);
+        
+        // แสดงข้อความสำเร็จ (ถ้าต้องการ)
+        alert(`ยินดีต้อนรับ ${result.data.user_info.full_name}!`);
+        
+        // เปลี่ยนเส้นทางไปหน้าหลัก
+        navigate('/', { replace: true });
+      } else {
+        // ✅ Login ไม่สำเร็จ
+        setError(result.error);
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -30,18 +65,33 @@ const Login = () => {
           <p className="login-subtitle">เข้าสู่ระบบเพื่อใช้งาน InternScreen</p>
         </div>
 
+        {/* ✅ แสดง error message */}
+        {error && (
+          <div className="error-message" style={{
+            backgroundColor: '#FEE2E2',
+            color: '#991B1B',
+            padding: '12px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            fontSize: '0.9rem'
+          }}>
+            {error}
+          </div>
+        )}
+
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="email" className="form-label">อีเมล</label>
+            <label htmlFor="username" className="form-label">ชื่อผู้ใช้</label>
             <input
-              type="email"
-              id="email"
-              name="email"
+              type="text"
+              id="username"
+              name="username"
               className="form-input"
-              placeholder="example@gmail.com"
-              value={formData.email}
+              placeholder="ชื่อผู้ใช้"
+              value={formData.username}
               onChange={handleChange}
               required
+              disabled={loading}
             />
           </div>
 
@@ -56,6 +106,7 @@ const Login = () => {
               value={formData.password}
               onChange={handleChange}
               required
+              disabled={loading}
             />
           </div>
 
@@ -66,6 +117,7 @@ const Login = () => {
                 name="rememberMe"
                 checked={formData.rememberMe}
                 onChange={handleChange}
+                disabled={loading}
               />
               จดจำฉัน
             </label>
@@ -74,8 +126,17 @@ const Login = () => {
             </a>
           </div>
 
-          <button type="submit" className="login-button">
-            เข้าสู่ระบบ
+          {/* ✅ ปุ่ม submit แสดง loading state */}
+          <button 
+            type="submit" 
+            className="login-button"
+            disabled={loading}
+            style={{
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
           </button>
         </form>
 

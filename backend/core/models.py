@@ -3,7 +3,7 @@
 # =============================================================================
 from pydantic import BaseModel, EmailStr, validator
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List  # ⭐ เพิ่ม List ตรงนี้
 from enum import Enum
 
 # =============================================================================
@@ -131,3 +131,60 @@ class MatchingResultResponse(BaseModel):
     matching_score: float
     status: str
     created_at: datetime
+
+# =============================================================================
+# COMPANY MODELS 🏢
+# =============================================================================
+class CompanyCreate(BaseModel):
+    name: str
+    industry: str
+    description: Optional[str] = None
+    location: Optional[str] = None
+    website: Optional[str] = None
+    contact_email: Optional[EmailStr] = None
+    contact_phone: Optional[str] = None
+    
+    @validator('name')
+    def name_must_not_be_empty(cls, v):
+        if not v.strip():
+            raise ValueError('Company name cannot be empty')
+        return v.strip()
+
+class CompanyUpdate(BaseModel):
+    name: Optional[str] = None
+    industry: Optional[str] = None
+    description: Optional[str] = None
+    location: Optional[str] = None
+    website: Optional[str] = None
+    contact_email: Optional[EmailStr] = None
+    contact_phone: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class CompanyResponse(BaseModel):
+    id: str
+    name: str
+    industry: str
+    description: Optional[str] = None
+    location: Optional[str] = None
+    website: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    # สถิติ HR
+    hr_count: Optional[int] = 0
+    active_hr_count: Optional[int] = 0
+
+class CompanyHRAssignRequest(BaseModel):
+    user_ids: List[str]  # ⭐ ตรงนี้ใช้ List ที่เรา import มาแล้ว
+    
+class CompanyHRResponse(BaseModel):
+    id: str
+    username: str
+    full_name: str
+    email: str
+    is_active: bool
+    assigned_at: datetime
+    last_login: Optional[datetime] = None

@@ -1,14 +1,17 @@
-// frontend/src/components/Admin/AdminDashboard.jsx - Enhanced Version
+// frontend/src/components/Admin/AdminDashboard.jsx - Updated with Company Management Tab
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import adminService from '../../services/adminService';
+import companyService from '../../services/companyService';
+import CompanyManagement from './CompanyManagement';
 import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
 
 const AdminDashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   
+  const [activeTab, setActiveTab] = useState('overview'); // overview, users, companies
   const [dashboardData, setDashboardData] = useState(null);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,17 +30,19 @@ const AdminDashboard = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
 
-  // ⭐ Real-time search with debounce
+  // Real-time search
   useEffect(() => {
-    const delayedSearch = setTimeout(() => {
-      if (users.length > 0 || searchTerm || userTypeFilter || statusFilter) {
-        setCurrentPage(1);
-        loadUsers(1, searchTerm, userTypeFilter, statusFilter);
-      }
-    }, 500); // รอ 500ms หลังจากผู้ใช้พิมพ์เสร็จ
+    if (activeTab === 'users') {
+      const delayedSearch = setTimeout(() => {
+        if (users.length > 0 || searchTerm || userTypeFilter || statusFilter) {
+          setCurrentPage(1);
+          loadUsers(1, searchTerm, userTypeFilter, statusFilter);
+        }
+      }, 500);
 
-    return () => clearTimeout(delayedSearch);
-  }, [searchTerm, userTypeFilter, statusFilter]);
+      return () => clearTimeout(delayedSearch);
+    }
+  }, [searchTerm, userTypeFilter, statusFilter, activeTab]);
 
   // ตรวจสอบ permission
   useEffect(() => {
@@ -53,8 +58,10 @@ const AdminDashboard = () => {
     }
 
     loadDashboardData();
-    loadUsers();
-  }, [isAuthenticated, user, navigate]);
+    if (activeTab === 'users') {
+      loadUsers();
+    }
+  }, [isAuthenticated, user, navigate, activeTab]);
 
   // โหลดข้อมูล Dashboard
   const loadDashboardData = async () => {
@@ -124,7 +131,7 @@ const AdminDashboard = () => {
         if (result.success) {
           alert('ลบผู้ใช้สำเร็จ');
           loadUsers(currentPage, searchTerm, userTypeFilter, statusFilter);
-          loadDashboardData(); // รีเฟรช stats
+          loadDashboardData();
         } else {
           alert(result.error);
         }
@@ -156,222 +163,300 @@ const AdminDashboard = () => {
         {/* Header */}
         <div className="admin-header">
           <h1 className="admin-title">Admin Dashboard</h1>
-          <p className="admin-subtitle">ระบบจัดการผู้ใช้และสิทธิ์การเข้าถึง</p>
+          <p className="admin-subtitle">ระบบจัดการผู้ใช้และบริษัท</p>
         </div>
 
-        {/* Stats Cards */}
-        {dashboardData && (
-          <div className="stats-grid">
-            <div className="stat-card total">
-              <div className="stat-icon">👥</div>
-              <div className="stat-content">
-                <h3>ผู้ใช้ทั้งหมด</h3>
-                <div className="stat-number">{dashboardData.total_users}</div>
-              </div>
-            </div>
-            
-            <div className="stat-card students">
-              <div className="stat-icon">🎓</div>
-              <div className="stat-content">
-                <h3>นักศึกษา</h3>
-                <div className="stat-number">{dashboardData.student_count}</div>
-              </div>
-            </div>
-            
-            <div className="stat-card hr">
-              <div className="stat-icon">💼</div>
-              <div className="stat-content">
-                <h3>HR</h3>
-                <div className="stat-number">{dashboardData.hr_count}</div>
-              </div>
-            </div>
-            
-            <div className="stat-card admins">
-              <div className="stat-icon">👑</div>
-              <div className="stat-content">
-                <h3>Admin</h3>
-                <div className="stat-number">{dashboardData.admin_count}</div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Tabs Navigation */}
+        <div className="dashboard-tabs">
+          <button 
+            className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            📊 ภาพรวม
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
+            onClick={() => setActiveTab('users')}
+          >
+            👥 จัดการผู้ใช้
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'companies' ? 'active' : ''}`}
+            onClick={() => setActiveTab('companies')}
+          >
+            🏢 จัดการบริษัท
+          </button>
+        </div>
 
-        {/* User Management Section */}
-        <div className="user-management">
-          <div className="section-header">
-            <h2>จัดการผู้ใช้</h2>
-            <button 
-              className="btn btn-primary"
-              onClick={() => setShowCreateModal(true)}
-            >
-              + เพิ่มผู้ใช้ใหม่
-            </button>
-          </div>
+        {/* Tab Content */}
+        <div className="tab-content">
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <div className="overview-tab">
+              {/* Stats Cards */}
+              {dashboardData && (
+                <div className="stats-grid">
+                  <div className="stat-card total">
+                    <div className="stat-icon">👥</div>
+                    <div className="stat-content">
+                      <h3>ผู้ใช้ทั้งหมด</h3>
+                      <div className="stat-number">{dashboardData.total_users}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="stat-card students">
+                    <div className="stat-icon">🎓</div>
+                    <div className="stat-content">
+                      <h3>นักศึกษา</h3>
+                      <div className="stat-number">{dashboardData.student_count}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="stat-card hr">
+                    <div className="stat-icon">💼</div>
+                    <div className="stat-content">
+                      <h3>HR</h3>
+                      <div className="stat-number">{dashboardData.hr_count}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="stat-card admins">
+                    <div className="stat-icon">👑</div>
+                    <div className="stat-content">
+                      <h3>Admin</h3>
+                      <div className="stat-number">{dashboardData.admin_count}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-          {/* ⭐ Enhanced Filters with Real-time Search */}
-          <div className="filters">
-            <div className="search-box">
-              <input
-                type="text"
-                placeholder="ค้นหาชื่อ, อีเมล, หรือ username... (พิมพ์เพื่อค้นหาทันที)"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
-              {searchTerm && (
-                <div className="search-indicator">
-                  🔍 กำลังค้นหา "{searchTerm}"
+              {/* Quick Actions */}
+              <div className="quick-actions">
+                <h3>การดำเนินการด่วน</h3>
+                <div className="actions-grid">
+                  <button 
+                    className="action-card"
+                    onClick={() => setActiveTab('users')}
+                  >
+                    <div className="action-icon">👥</div>
+                    <div className="action-text">
+                      <h4>จัดการผู้ใช้</h4>
+                      <p>เพิ่ม แก้ไข ลบผู้ใช้</p>
+                    </div>
+                  </button>
+                  
+                  <button 
+                    className="action-card"
+                    onClick={() => setActiveTab('companies')}
+                  >
+                    <div className="action-icon">🏢</div>
+                    <div className="action-text">
+                      <h4>จัดการบริษัท</h4>
+                      <p>เพิ่มบริษัทและกำหนด HR</p>
+                    </div>
+                  </button>
+                  
+                  <button 
+                    className="action-card"
+                    onClick={() => setShowCreateModal(true)}
+                  >
+                    <div className="action-icon">➕</div>
+                    <div className="action-text">
+                      <h4>เพิ่มผู้ใช้ใหม่</h4>
+                      <p>สร้างบัญชีผู้ใช้ใหม่</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Users Management Tab */}
+          {activeTab === 'users' && (
+            <div className="users-tab">
+              <div className="section-header">
+                <h2>👥 จัดการผู้ใช้</h2>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => setShowCreateModal(true)}
+                >
+                  + เพิ่มผู้ใช้ใหม่
+                </button>
+              </div>
+
+              {/* Filters */}
+              <div className="filters">
+                <div className="search-box">
+                  <input
+                    type="text"
+                    placeholder="ค้นหาชื่อ, อีเมล, หรือ username..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="search-input"
+                  />
+                  {searchTerm && (
+                    <div className="search-indicator">
+                      🔍 กำลังค้นหา "{searchTerm}"
+                    </div>
+                  )}
+                </div>
+                
+                <select
+                  value={userTypeFilter}
+                  onChange={(e) => setUserTypeFilter(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="">ทุก Role</option>
+                  <option value="Student">Student</option>
+                  <option value="HR">HR</option>
+                  <option value="Admin">Admin</option>
+                </select>
+                
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="">ทุกสถานะ</option>
+                  <option value="active">เปิดใช้งาน</option>
+                  <option value="inactive">ปิดใช้งาน</option>
+                </select>
+                
+                <button 
+                  onClick={() => {
+                    setSearchTerm('');
+                    setUserTypeFilter('');
+                    setStatusFilter('');
+                    setCurrentPage(1);
+                    loadUsers(1, '', '', '');
+                  }} 
+                  className="btn btn-secondary"
+                >
+                  ล้างตัวกรอง
+                </button>
+              </div>
+
+              {/* Users Table */}
+              <div className="users-table-container">
+                {usersLoading ? (
+                  <LoadingSpinner message="กำลังโหลดรายการผู้ใช้..." />
+                ) : (
+                  <table className="users-table">
+                    <thead>
+                      <tr>
+                        <th>ผู้ใช้</th>
+                        <th>อีเมล</th>
+                        <th>Role</th>
+                        <th>สถานะ</th>
+                        <th>เข้าสู่ระบบล่าสุด</th>
+                        <th>การจัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.length > 0 ? (
+                        users.map((user) => (
+                          <tr key={user.id}>
+                            <td>
+                              <div className="user-info">
+                                <div className="user-avatar-small">
+                                  {user.full_name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="user-name">{user.full_name}</div>
+                                  <div className="username">@{user.username}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td>{user.email}</td>
+                            <td>
+                              <span className={`role-badge ${user.user_type.toLowerCase()}`}>
+                                {user.user_type}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
+                                {user.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                              </span>
+                            </td>
+                            <td>{formatDate(user.last_login)}</td>
+                            <td>
+                              <div className="action-buttons">
+                                <button 
+                                  className="btn-action edit"
+                                  onClick={() => handleEditUser(user.id)}
+                                  title="แก้ไข"
+                                  disabled={modalLoading}
+                                >
+                                  ✏️
+                                </button>
+                                <button 
+                                  className="btn-action delete"
+                                  onClick={() => handleDeleteUser(user.id, user.username)}
+                                  title="ลบ"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
+                            {searchTerm || userTypeFilter || statusFilter 
+                              ? 'ไม่พบผู้ใช้ที่ตรงกับเงื่อนไขการค้นหา' 
+                              : 'ไม่มีข้อมูลผู้ใช้'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {users.length > 0 && (
+                <div className="pagination">
+                  <button 
+                    className="btn btn-secondary"
+                    disabled={currentPage === 1}
+                    onClick={() => {
+                      const newPage = currentPage - 1;
+                      setCurrentPage(newPage);
+                      loadUsers(newPage, searchTerm, userTypeFilter, statusFilter);
+                    }}
+                  >
+                    ← ก่อนหน้า
+                  </button>
+                  
+                  <span className="page-info">หน้า {currentPage}</span>
+                  
+                  <button 
+                    className="btn btn-secondary"
+                    disabled={users.length < 10}
+                    onClick={() => {
+                      const newPage = currentPage + 1;
+                      setCurrentPage(newPage);
+                      loadUsers(newPage, searchTerm, userTypeFilter, statusFilter);
+                    }}
+                  >
+                    ถัดไป →
+                  </button>
                 </div>
               )}
             </div>
-            
-            <select
-              value={userTypeFilter}
-              onChange={(e) => setUserTypeFilter(e.target.value)}
-              className="filter-select"
-            >
-              <option value="">ทุก Role</option>
-              <option value="Student">Student</option>
-              <option value="HR">HR</option>
-              <option value="Admin">Admin</option>
-            </select>
-            
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="filter-select"
-            >
-              <option value="">ทุกสถานะ</option>
-              <option value="active">เปิดใช้งาน</option>
-              <option value="inactive">ปิดใช้งาน</option>
-            </select>
-            
-            <button 
-              onClick={() => {
-                setSearchTerm('');
-                setUserTypeFilter('');
-                setStatusFilter('');
-                setCurrentPage(1);
-                loadUsers(1, '', '', '');
-              }} 
-              className="btn btn-secondary"
-            >
-              ล้างตัวกรอง
-            </button>
-          </div>
+          )}
 
-          {/* Users Table */}
-          <div className="users-table-container">
-            {usersLoading ? (
-              <LoadingSpinner message="กำลังโหลดรายการผู้ใช้..." />
-            ) : (
-              <table className="users-table">
-                <thead>
-                  <tr>
-                    <th>ผู้ใช้</th>
-                    <th>อีเมล</th>
-                    <th>Role</th>
-                    <th>สถานะ</th>
-                    <th>เข้าสู่ระบบล่าสุด</th>
-                    <th>การจัดการ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.length > 0 ? (
-                    users.map((user) => (
-                      <tr key={user.id}>
-                        <td>
-                          <div className="user-info">
-                            <div className="user-avatar-small">
-                              {user.full_name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <div className="user-name">{user.full_name}</div>
-                              <div className="username">@{user.username}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td>{user.email}</td>
-                        <td>
-                          <span className={`role-badge ${user.user_type.toLowerCase()}`}>
-                            {user.user_type}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
-                            {user.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                          </span>
-                        </td>
-                        <td>{formatDate(user.last_login)}</td>
-                        <td>
-                          <div className="action-buttons">
-                            <button 
-                              className="btn-action edit"
-                              onClick={() => handleEditUser(user.id)}
-                              title="แก้ไข"
-                              disabled={modalLoading}
-                            >
-                              ✏️
-                            </button>
-                            <button 
-                              className="btn-action delete"
-                              onClick={() => handleDeleteUser(user.id, user.username)}
-                              title="ลบ"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
-                        {searchTerm || userTypeFilter || statusFilter 
-                          ? 'ไม่พบผู้ใช้ที่ตรงกับเงื่อนไขการค้นหา' 
-                          : 'ไม่มีข้อมูลผู้ใช้'}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Pagination */}
-          {users.length > 0 && (
-            <div className="pagination">
-              <button 
-                className="btn btn-secondary"
-                disabled={currentPage === 1}
-                onClick={() => {
-                  const newPage = currentPage - 1;
-                  setCurrentPage(newPage);
-                  loadUsers(newPage, searchTerm, userTypeFilter, statusFilter);
-                }}
-              >
-                ← ก่อนหน้า
-              </button>
-              
-              <span className="page-info">หน้า {currentPage}</span>
-              
-              <button 
-                className="btn btn-secondary"
-                disabled={users.length < 10}
-                onClick={() => {
-                  const newPage = currentPage + 1;
-                  setCurrentPage(newPage);
-                  loadUsers(newPage, searchTerm, userTypeFilter, statusFilter);
-                }}
-              >
-                ถัดไป →
-              </button>
+          {/* Companies Management Tab */}
+          {activeTab === 'companies' && (
+            <div className="companies-tab">
+              <CompanyManagement />
             </div>
           )}
         </div>
       </div>
 
-      {/* ⭐ Enhanced Edit User Modal */}
+      {/* Edit User Modal */}
       {showEditModal && selectedUser && (
         <EditUserModal
           user={selectedUser}
@@ -403,7 +488,7 @@ const AdminDashboard = () => {
   );
 };
 
-// ⭐ Enhanced Edit User Modal Component with Username & Password
+// Edit User Modal Component (same as before)
 const EditUserModal = ({ user, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     username: user.username || '',
@@ -425,14 +510,12 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     setError('');
 
     try {
-      // ตรวจสอบ username ความยาว
       if (formData.username.trim().length < 3) {
         setError('ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร');
         setLoading(false);
         return;
       }
 
-      // ตรวจสอบรหัสผ่านถ้ามีการกรอก
       if (showPasswordFields && formData.new_password) {
         if (formData.new_password.length < 6) {
           setError('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร');
@@ -447,7 +530,6 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
         }
       }
 
-      // เตรียมข้อมูลสำหรับส่ง
       const updateData = {
         username: formData.username.trim(),
         full_name: formData.full_name.trim(),
@@ -457,7 +539,6 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
         is_active: formData.is_active
       };
 
-      // เพิ่มรหัสผ่านถ้ามีการเปลี่ยน
       if (showPasswordFields && formData.new_password) {
         updateData.new_password = formData.new_password;
       }
@@ -488,7 +569,6 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
 
   const togglePasswordFields = () => {
     setShowPasswordFields(!showPasswordFields);
-    // ล้างข้อมูลรหัสผ่านเมื่อปิดฟิลด์
     if (showPasswordFields) {
       setFormData(prev => ({
         ...prev,
@@ -513,7 +593,6 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
         )}
 
         <form onSubmit={handleSubmit} className="edit-user-form">
-          {/* ⭐ Username Field */}
           <div className="form-group">
             <label htmlFor="username">ชื่อผู้ใช้ *</label>
             <input
@@ -527,9 +606,6 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
               className="form-input"
               placeholder="ชื่อผู้ใช้ (อย่างน้อย 3 ตัวอักษร)"
             />
-            <small className="form-hint">
-              ⚠️ การเปลี่ยนชื่อผู้ใช้อาจส่งผลต่อการเข้าสู่ระบบ
-            </small>
           </div>
 
           <div className="form-group">
@@ -606,7 +682,6 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* ⭐ Password Section */}
           <div className="password-section">
             <div className="password-toggle">
               <button
@@ -654,21 +729,6 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                     />
                   </div>
                 </div>
-                
-                <div className="password-strength">
-                  {formData.new_password && (
-                    <div className="password-hints">
-                      <div className={`password-requirement ${formData.new_password.length >= 6 ? 'valid' : ''}`}>
-                        {formData.new_password.length >= 6 ? '✅' : '❌'} อย่างน้อย 6 ตัวอักษร
-                      </div>
-                      {formData.confirm_password && (
-                        <div className={`password-requirement ${formData.new_password === formData.confirm_password ? 'valid' : ''}`}>
-                          {formData.new_password === formData.confirm_password ? '✅' : '❌'} รหัสผ่านตรงกัน
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
               </div>
             )}
           </div>
@@ -696,7 +756,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
   );
 };
 
-// ⭐ Enhanced Create User Modal Component
+// Create User Modal Component (same as before)
 const CreateUserModal = ({ onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     username: '',

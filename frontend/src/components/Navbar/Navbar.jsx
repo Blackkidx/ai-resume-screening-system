@@ -1,4 +1,4 @@
-// frontend/src/components/Navbar/Navbar.jsx
+// frontend/src/components/Navbar/Navbar.jsx - Updated with HR Dashboard
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -52,6 +52,12 @@ const Navbar = () => {
     navigate('/admin/dashboard');
   };
 
+  // ⭐ ฟังก์ชันไปหน้า HR Dashboard
+  const handleHRDashboard = () => {
+    setIsDropdownOpen(false);
+    navigate('/hr/dashboard');
+  };
+
   // ฟังก์ชันสำหรับแสดงชื่อย่อ
   const getInitials = (fullName) => {
     if (!fullName) return 'U';
@@ -77,6 +83,11 @@ const Navbar = () => {
   // ⭐ ตรวจสอบว่าเป็น Admin หรือไม่
   const isAdmin = () => {
     return user && (user.user_type === 'Admin' || (user.roles && user.roles.includes('Admin')));
+  };
+
+  // ⭐ ตรวจสอบว่าเป็น HR หรือไม่
+  const isHR = () => {
+    return user && (user.user_type === 'HR' || (user.roles && user.roles.includes('HR')));
   };
 
   return (
@@ -144,7 +155,23 @@ const Navbar = () => {
                             <line x1="9" y1="13" x2="15" y2="13"></line>
                             <line x1="9" y1="17" x2="15" y2="17"></line>
                           </svg>
-                          Admin Dashboard
+                          👑 Admin Dashboard
+                        </button>
+                      )}
+
+                      {/* ⭐ แสดง HR Dashboard สำหรับ HR เท่านั้น */}
+                      {isHR() && (
+                        <button 
+                          className="dropdown-item hr-item"
+                          onClick={handleHRDashboard}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                          </svg>
+                          💼 HR Dashboard
                         </button>
                       )}
                       

@@ -1,4 +1,4 @@
-# backend/routes/admin.py
+# backend/routes/admin.py - Updated Version
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from datetime import datetime
 from bson import ObjectId
@@ -7,7 +7,7 @@ from pymongo import ASCENDING, DESCENDING
 
 # Local imports
 from core.models import UserType
-from core.auth import require_admin, get_current_user_data
+from core.auth import require_admin, get_current_user_data, hash_password
 from core.database import get_database
 
 # Create router
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/admin", tags=["Admin Management"])
 # =============================================================================
 # PYDANTIC MODELS สำหรับ Admin
 # =============================================================================
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, validator
 
 class UserListResponse(BaseModel):
     id: str
@@ -29,11 +29,29 @@ class UserListResponse(BaseModel):
     last_login: Optional[datetime] = None
 
 class UserUpdateRequest(BaseModel):
+    username: Optional[str] = None  # ⭐ เพิ่ม username
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     user_type: Optional[UserType] = None
     is_active: Optional[bool] = None
+    new_password: Optional[str] = None  # ⭐ เพิ่ม password
+    
+    # ⭐ เพิ่ม validators
+    @validator('username')
+    def username_must_be_valid(cls, v):
+        if v is not None:
+            if len(v.strip()) < 3:
+                raise ValueError('Username must be at least 3 characters')
+            if not v.replace('_', '').replace('-', '').isalnum():
+                raise ValueError('Username can only contain letters, numbers, underscore and hyphen')
+        return v
+    
+    @validator('new_password')
+    def password_must_be_strong(cls, v):
+        if v is not None and len(v) < 6:
+            raise ValueError('Password must be at least 6 characters')
+        return v
 
 class UserCreateRequest(BaseModel):
     username: str
@@ -202,13 +220,14 @@ async def get_user_by_id(
             detail=f"Failed to fetch user: {str(e)}"
         )
 
+# ⭐ อัปเดต PUT endpoint เพื่อรองรับ username และ password
 @router.put("/users/{user_id}")
 async def update_user(
     user_id: str,
     user_update: UserUpdateRequest,
     admin_data: dict = Depends(require_admin)
 ):
-    """อัปเดตข้อมูลผู้ใช้"""
+    """อัปเดตข้อมูลผู้ใช้ รวมถึง username และ password"""
     try:
         db = get_database()
         
@@ -227,8 +246,26 @@ async def update_user(
         # สร้าง update data
         update_data = {"updated_at": datetime.utcnow()}
         
+        # ⭐ ตรวจสอบและอัปเดต username
+        if user_update.username is not None:
+            username_trimmed = user_update.username.strip()
+            if username_trimmed != existing_user.get("username"):
+                # ตรวจสอบ username ซ้ำ
+                username_check = await db.users.find_one({
+                    "username": username_trimmed,
+                    "_id": {"$ne": existing_user["_id"]}
+                })
+                if username_check:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Username already exists"
+                    )
+                update_data["username"] = username_trimmed
+        
+        # อัปเดตฟิลด์อื่นๆ
         if user_update.full_name is not None:
-            update_data["full_name"] = user_update.full_name
+            update_data["full_name"] = user_update.full_name.strip()
+            
         if user_update.email is not None:
             # ตรวจสอบ email ซ้ำ
             email_check = await db.users.find_one({
@@ -241,12 +278,20 @@ async def update_user(
                     detail="Email already exists"
                 )
             update_data["email"] = user_update.email
+            
         if user_update.phone is not None:
-            update_data["phone"] = user_update.phone
+            update_data["phone"] = user_update.phone.strip() if user_update.phone.strip() else None
+            
         if user_update.user_type is not None:
             update_data["user_type"] = user_update.user_type.value
+            
         if user_update.is_active is not None:
             update_data["is_active"] = user_update.is_active
+        
+        # ⭐ ตรวจสอบและอัปเดต password
+        if user_update.new_password is not None and user_update.new_password.strip():
+            password_hash = hash_password(user_update.new_password)
+            update_data["password_hash"] = password_hash
         
         # อัปเดต user
         result = await db.users.update_one(
@@ -337,8 +382,6 @@ async def delete_user(
 # =============================================================================
 # USER CREATION - สร้างผู้ใช้ใหม่
 # =============================================================================
-from core.auth import hash_password
-
 @router.post("/users", status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_data: UserCreateRequest,
@@ -410,4 +453,39 @@ async def create_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create user: {str(e)}"
+        )
+
+# ⭐ เพิ่ม endpoint สำหรับตรวจสอบ username ว่าซ้ำหรือไม่
+@router.get("/check-username")
+async def check_username_availability(
+    username: str = Query(...),
+    exclude_user_id: Optional[str] = Query(None),
+    admin_data: dict = Depends(require_admin)
+):
+    """ตรวจสอบว่า username ซ้ำหรือไม่"""
+    try:
+        db = get_database()
+        
+        # สร้าง query
+        query = {"username": username}
+        
+        # ถ้ามี exclude_user_id ให้ไม่นับ user คนนั้น
+        if exclude_user_id:
+            try:
+                query["_id"] = {"$ne": ObjectId(exclude_user_id)}
+            except:
+                query["_id"] = {"$ne": exclude_user_id}
+        
+        # ตรวจสอบว่ามี username นี้หรือไม่
+        existing_user = await db.users.find_one(query)
+        
+        return {
+            "available": existing_user is None,
+            "username": username
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to check username: {str(e)}"
         )

@@ -1,4 +1,4 @@
-// frontend/src/services/adminService.js
+// frontend/src/services/adminService.js - Updated Version
 import { API_BASE_URL } from '../config';
 import authService from './authService';
 
@@ -104,19 +104,52 @@ class AdminService {
     }
   }
 
-  // ✅ อัปเดตข้อมูลผู้ใช้
+  // ⭐ อัปเดตข้อมูลผู้ใช้ (รองรับ Username & Password)
   async updateUser(userId, userData) {
     try {
+      // เตรียมข้อมูลที่จะส่ง
+      const updateData = {
+        full_name: userData.full_name,
+        email: userData.email,
+        phone: userData.phone,
+        user_type: userData.user_type,
+        is_active: userData.is_active
+      };
+
+      // ⭐ เพิ่ม username ถ้ามีการเปลี่ยน
+      if (userData.username) {
+        updateData.username = userData.username;
+      }
+
+      // ⭐ เพิ่ม password ถ้ามีการเปลี่ยน
+      if (userData.new_password) {
+        updateData.new_password = userData.new_password;
+      }
+
       const response = await fetch(`${this.baseURL}/api/admin/users/${userId}`, {
         method: 'PUT',
         headers: this.getAuthHeaders(),
-        body: JSON.stringify(userData),
+        body: JSON.stringify(updateData),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Failed to update user');
+        // ⭐ ปรับปรุงการจัดการ error messages
+        let errorMessage = data.detail || 'Failed to update user';
+        
+        // แปลง error message ให้เป็นภาษาไทย
+        if (errorMessage.includes('Username already exists')) {
+          errorMessage = 'ชื่อผู้ใช้นี้มีอยู่แล้ว กรุณาเลือกชื่อผู้ใช้อื่น';
+        } else if (errorMessage.includes('Email already exists')) {
+          errorMessage = 'อีเมลนี้มีอยู่แล้ว กรุณาใช้อีเมลอื่น';
+        } else if (errorMessage.includes('Username must be at least 3 characters')) {
+          errorMessage = 'ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร';
+        } else if (errorMessage.includes('Password must be at least 6 characters')) {
+          errorMessage = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
+        }
+        
+        throw new Error(errorMessage);
       }
 
       return {
@@ -171,7 +204,16 @@ class AdminService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Failed to create user');
+        // ⭐ ปรับปรุงการจัดการ error messages
+        let errorMessage = data.detail || 'Failed to create user';
+        
+        if (errorMessage.includes('Username already exists')) {
+          errorMessage = 'ชื่อผู้ใช้นี้มีอยู่แล้ว กรุณาเลือกชื่อผู้ใช้อื่น';
+        } else if (errorMessage.includes('Email already exists')) {
+          errorMessage = 'อีเมลนี้มีอยู่แล้ว กรุณาใช้อีเมลอื่น';
+        }
+        
+        throw new Error(errorMessage);
       }
 
       return {
@@ -193,7 +235,39 @@ class AdminService {
     return user.user_type === 'Admin' || (user.roles && user.roles.includes('Admin'));
   }
 
-  // ✅ ดึงข้อมูลสถิติเพิ่มเติม (ถ้าต้องการ)
+  // ⭐ ตรวจสอบ Username ว่าซ้ำหรือไม่
+  async checkUsernameAvailability(username, excludeUserId = null) {
+    try {
+      const queryParams = new URLSearchParams();
+      queryParams.append('username', username);
+      if (excludeUserId) {
+        queryParams.append('exclude_user_id', excludeUserId);
+      }
+
+      const response = await fetch(`${this.baseURL}/api/admin/check-username?${queryParams}`, {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to check username');
+      }
+
+      return {
+        success: true,
+        available: data.available
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // ⭐ ดึงข้อมูลสถิติเพิ่มเติม
   async getAdvancedStats() {
     try {
       // สามารถเพิ่ม endpoint อื่นๆ ได้ตามต้องการ

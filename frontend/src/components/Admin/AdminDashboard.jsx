@@ -1,4 +1,4 @@
-// frontend/src/components/Admin/AdminDashboard.jsx
+// frontend/src/components/Admin/AdminDashboard.jsx - Enhanced Version
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +25,19 @@ const AdminDashboard = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [modalLoading, setModalLoading] = useState(false);
+
+  // ⭐ Real-time search with debounce
+  useEffect(() => {
+    const delayedSearch = setTimeout(() => {
+      if (users.length > 0 || searchTerm || userTypeFilter || statusFilter) {
+        setCurrentPage(1);
+        loadUsers(1, searchTerm, userTypeFilter, statusFilter);
+      }
+    }, 500); // รอ 500ms หลังจากผู้ใช้พิมพ์เสร็จ
+
+    return () => clearTimeout(delayedSearch);
+  }, [searchTerm, userTypeFilter, statusFilter]);
 
   // ตรวจสอบ permission
   useEffect(() => {
@@ -85,22 +98,21 @@ const AdminDashboard = () => {
     }
   };
 
-  // Handle Search
-  const handleSearch = () => {
-    setCurrentPage(1);
-    loadUsers(1, searchTerm, userTypeFilter, statusFilter);
-  };
-
   // Handle Edit User
   const handleEditUser = async (userId) => {
     try {
+      setModalLoading(true);
       const result = await adminService.getUserById(userId);
       if (result.success) {
         setSelectedUser(result.data);
         setShowEditModal(true);
+      } else {
+        alert('เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้: ' + result.error);
       }
     } catch (error) {
       alert('เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้');
+    } finally {
+      setModalLoading(false);
     }
   };
 
@@ -196,16 +208,21 @@ const AdminDashboard = () => {
             </button>
           </div>
 
-          {/* Filters */}
+          {/* ⭐ Enhanced Filters with Real-time Search */}
           <div className="filters">
             <div className="search-box">
               <input
                 type="text"
-                placeholder="ค้นหาชื่อ, อีเมล, หรือ username..."
+                placeholder="ค้นหาชื่อ, อีเมล, หรือ username... (พิมพ์เพื่อค้นหาทันที)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="search-input"
               />
+              {searchTerm && (
+                <div className="search-indicator">
+                  🔍 กำลังค้นหา "{searchTerm}"
+                </div>
+              )}
             </div>
             
             <select
@@ -229,8 +246,17 @@ const AdminDashboard = () => {
               <option value="inactive">ปิดใช้งาน</option>
             </select>
             
-            <button onClick={handleSearch} className="btn btn-secondary">
-              ค้นหา
+            <button 
+              onClick={() => {
+                setSearchTerm('');
+                setUserTypeFilter('');
+                setStatusFilter('');
+                setCurrentPage(1);
+                loadUsers(1, '', '', '');
+              }} 
+              className="btn btn-secondary"
+            >
+              ล้างตัวกรอง
             </button>
           </div>
 
@@ -251,100 +277,118 @@ const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id}>
-                      <td>
-                        <div className="user-info">
-                          <div className="user-avatar-small">
-                            {user.full_name.charAt(0).toUpperCase()}
+                  {users.length > 0 ? (
+                    users.map((user) => (
+                      <tr key={user.id}>
+                        <td>
+                          <div className="user-info">
+                            <div className="user-avatar-small">
+                              {user.full_name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="user-name">{user.full_name}</div>
+                              <div className="username">@{user.username}</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="user-name">{user.full_name}</div>
-                            <div className="username">@{user.username}</div>
+                        </td>
+                        <td>{user.email}</td>
+                        <td>
+                          <span className={`role-badge ${user.user_type.toLowerCase()}`}>
+                            {user.user_type}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
+                            {user.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                          </span>
+                        </td>
+                        <td>{formatDate(user.last_login)}</td>
+                        <td>
+                          <div className="action-buttons">
+                            <button 
+                              className="btn-action edit"
+                              onClick={() => handleEditUser(user.id)}
+                              title="แก้ไข"
+                              disabled={modalLoading}
+                            >
+                              ✏️
+                            </button>
+                            <button 
+                              className="btn-action delete"
+                              onClick={() => handleDeleteUser(user.id, user.username)}
+                              title="ลบ"
+                            >
+                              🗑️
+                            </button>
                           </div>
-                        </div>
-                      </td>
-                      <td>{user.email}</td>
-                      <td>
-                        <span className={`role-badge ${user.user_type.toLowerCase()}`}>
-                          {user.user_type}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
-                          {user.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                        </span>
-                      </td>
-                      <td>{formatDate(user.last_login)}</td>
-                      <td>
-                        <div className="action-buttons">
-                          <button 
-                            className="btn-action edit"
-                            onClick={() => handleEditUser(user.id)}
-                            title="แก้ไข"
-                          >
-                            ✏️
-                          </button>
-                          <button 
-                            className="btn-action delete"
-                            onClick={() => handleDeleteUser(user.id, user.username)}
-                            title="ลบ"
-                          >
-                            🗑️
-                          </button>
-                        </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
+                        {searchTerm || userTypeFilter || statusFilter 
+                          ? 'ไม่พบผู้ใช้ที่ตรงกับเงื่อนไขการค้นหา' 
+                          : 'ไม่มีข้อมูลผู้ใช้'}
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             )}
           </div>
 
           {/* Pagination */}
-          <div className="pagination">
-            <button 
-              className="btn btn-secondary"
-              disabled={currentPage === 1}
-              onClick={() => {
-                const newPage = currentPage - 1;
-                setCurrentPage(newPage);
-                loadUsers(newPage, searchTerm, userTypeFilter, statusFilter);
-              }}
-            >
-              ← ก่อนหน้า
-            </button>
-            
-            <span className="page-info">หน้า {currentPage}</span>
-            
-            <button 
-              className="btn btn-secondary"
-              disabled={users.length < 10}
-              onClick={() => {
-                const newPage = currentPage + 1;
-                setCurrentPage(newPage);
-                loadUsers(newPage, searchTerm, userTypeFilter, statusFilter);
-              }}
-            >
-              ถัดไป →
-            </button>
-          </div>
+          {users.length > 0 && (
+            <div className="pagination">
+              <button 
+                className="btn btn-secondary"
+                disabled={currentPage === 1}
+                onClick={() => {
+                  const newPage = currentPage - 1;
+                  setCurrentPage(newPage);
+                  loadUsers(newPage, searchTerm, userTypeFilter, statusFilter);
+                }}
+              >
+                ← ก่อนหน้า
+              </button>
+              
+              <span className="page-info">หน้า {currentPage}</span>
+              
+              <button 
+                className="btn btn-secondary"
+                disabled={users.length < 10}
+                onClick={() => {
+                  const newPage = currentPage + 1;
+                  setCurrentPage(newPage);
+                  loadUsers(newPage, searchTerm, userTypeFilter, statusFilter);
+                }}
+              >
+                ถัดไป →
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Modals จะเพิ่มในขั้นตอนถัดไป */}
+      {/* ⭐ Enhanced Edit User Modal */}
       {showEditModal && selectedUser && (
         <EditUserModal
           user={selectedUser}
-          onClose={() => setShowEditModal(false)}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedUser(null);
+          }}
           onSuccess={() => {
             loadUsers(currentPage, searchTerm, userTypeFilter, statusFilter);
             loadDashboardData();
             setShowEditModal(false);
+            setSelectedUser(null);
           }}
         />
       )}
 
+      {/* Create User Modal */}
       {showCreateModal && (
         <CreateUserModal
           onClose={() => setShowCreateModal(false)}
@@ -359,25 +403,499 @@ const AdminDashboard = () => {
   );
 };
 
-// Placeholder components for modals (จะสร้างในขั้นตอนถัดไป)
-const EditUserModal = ({ user, onClose, onSuccess }) => (
-  <div className="modal-overlay">
-    <div className="modal">
-      <h3>แก้ไขผู้ใช้: {user.full_name}</h3>
-      <p>Modal สำหรับแก้ไขผู้ใช้จะเพิ่มในขั้นตอนถัดไป</p>
-      <button onClick={onClose}>ปิด</button>
-    </div>
-  </div>
-);
+// ⭐ Enhanced Edit User Modal Component with Username & Password
+const EditUserModal = ({ user, onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    username: user.username || '',
+    full_name: user.full_name || '',
+    email: user.email || '',
+    phone: user.phone || '',
+    user_type: user.user_type || 'Student',
+    is_active: user.is_active !== undefined ? user.is_active : true,
+    new_password: '',
+    confirm_password: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
 
-const CreateUserModal = ({ onClose, onSuccess }) => (
-  <div className="modal-overlay">
-    <div className="modal">
-      <h3>เพิ่มผู้ใช้ใหม่</h3>
-      <p>Modal สำหรับเพิ่มผู้ใช้ใหม่จะเพิ่มในขั้นตอนถัดไป</p>
-      <button onClick={onClose}>ปิด</button>
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      // ตรวจสอบ username ความยาว
+      if (formData.username.trim().length < 3) {
+        setError('ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร');
+        setLoading(false);
+        return;
+      }
+
+      // ตรวจสอบรหัสผ่านถ้ามีการกรอก
+      if (showPasswordFields && formData.new_password) {
+        if (formData.new_password.length < 6) {
+          setError('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร');
+          setLoading(false);
+          return;
+        }
+        
+        if (formData.new_password !== formData.confirm_password) {
+          setError('รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // เตรียมข้อมูลสำหรับส่ง
+      const updateData = {
+        username: formData.username.trim(),
+        full_name: formData.full_name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim() || null,
+        user_type: formData.user_type,
+        is_active: formData.is_active
+      };
+
+      // เพิ่มรหัสผ่านถ้ามีการเปลี่ยน
+      if (showPasswordFields && formData.new_password) {
+        updateData.new_password = formData.new_password;
+      }
+
+      const result = await adminService.updateUser(user.id, updateData);
+
+      if (result.success) {
+        alert('อัปเดตข้อมูลผู้ใช้สำเร็จ');
+        onSuccess();
+      } else {
+        setError(result.error);
+      }
+    } catch (error) {
+      setError('เกิดข้อผิดพลาดในการอัปเดตข้อมูล');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    if (error) setError('');
+  };
+
+  const togglePasswordFields = () => {
+    setShowPasswordFields(!showPasswordFields);
+    // ล้างข้อมูลรหัสผ่านเมื่อปิดฟิลด์
+    if (showPasswordFields) {
+      setFormData(prev => ({
+        ...prev,
+        new_password: '',
+        confirm_password: ''
+      }));
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal edit-user-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>แก้ไขข้อมูลผู้ใช้: {user.full_name}</h3>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="edit-user-form">
+          {/* ⭐ Username Field */}
+          <div className="form-group">
+            <label htmlFor="username">ชื่อผู้ใช้ *</label>
+            <input
+              type="text"
+              id="username"
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              required
+              disabled={loading}
+              className="form-input"
+              placeholder="ชื่อผู้ใช้ (อย่างน้อย 3 ตัวอักษร)"
+            />
+            <small className="form-hint">
+              ⚠️ การเปลี่ยนชื่อผู้ใช้อาจส่งผลต่อการเข้าสู่ระบบ
+            </small>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="full_name">ชื่อ-นามสกุล *</label>
+            <input
+              type="text"
+              id="full_name"
+              name="full_name"
+              value={formData.full_name}
+              onChange={handleChange}
+              required
+              disabled={loading}
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="email">อีเมล *</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              disabled={loading}
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="phone">เบอร์โทรศัพท์</label>
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              disabled={loading}
+              className="form-input"
+              placeholder="080-xxx-xxxx"
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="user_type">ประเภทผู้ใช้ *</label>
+              <select
+                id="user_type"
+                name="user_type"
+                value={formData.user_type}
+                onChange={handleChange}
+                required
+                disabled={loading}
+                className="form-input"
+              >
+                <option value="Student">Student</option>
+                <option value="HR">HR</option>
+                <option value="Admin">Admin</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="is_active"
+                  checked={formData.is_active}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+                เปิดใช้งานบัญชี
+              </label>
+            </div>
+          </div>
+
+          {/* ⭐ Password Section */}
+          <div className="password-section">
+            <div className="password-toggle">
+              <button
+                type="button"
+                onClick={togglePasswordFields}
+                className="btn btn-outline"
+                disabled={loading}
+              >
+                {showPasswordFields ? '🔒 ยกเลิกการเปลี่ยนรหัสผ่าน' : '🔓 เปลี่ยนรหัสผ่าน'}
+              </button>
+            </div>
+
+            {showPasswordFields && (
+              <div className="password-fields">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="new_password">รหัสผ่านใหม่ *</label>
+                    <input
+                      type="password"
+                      id="new_password"
+                      name="new_password"
+                      value={formData.new_password}
+                      onChange={handleChange}
+                      required={showPasswordFields}
+                      disabled={loading}
+                      className="form-input"
+                      placeholder="อย่างน้อย 6 ตัวอักษร"
+                      autoComplete="new-password"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="confirm_password">ยืนยันรหัสผ่าน *</label>
+                    <input
+                      type="password"
+                      id="confirm_password"
+                      name="confirm_password"
+                      value={formData.confirm_password}
+                      onChange={handleChange}
+                      required={showPasswordFields}
+                      disabled={loading}
+                      className="form-input"
+                      placeholder="พิมพ์รหัสผ่านอีกครั้ง"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                </div>
+                
+                <div className="password-strength">
+                  {formData.new_password && (
+                    <div className="password-hints">
+                      <div className={`password-requirement ${formData.new_password.length >= 6 ? 'valid' : ''}`}>
+                        {formData.new_password.length >= 6 ? '✅' : '❌'} อย่างน้อย 6 ตัวอักษร
+                      </div>
+                      {formData.confirm_password && (
+                        <div className={`password-requirement ${formData.new_password === formData.confirm_password ? 'valid' : ''}`}>
+                          {formData.new_password === formData.confirm_password ? '✅' : '❌'} รหัสผ่านตรงกัน
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="modal-actions">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary"
+              disabled={loading}
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading}
+            >
+              {loading ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
-  </div>
-);
+  );
+};
+
+// ⭐ Enhanced Create User Modal Component
+const CreateUserModal = ({ onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    password: '',
+    full_name: '',
+    phone: '',
+    user_type: 'Student',
+    is_active: true
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      if (formData.password.length < 6) {
+        setError('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+        setLoading(false);
+        return;
+      }
+
+      const result = await adminService.createUser({
+        username: formData.username.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
+        full_name: formData.full_name.trim(),
+        phone: formData.phone.trim() || null,
+        user_type: formData.user_type,
+        is_active: formData.is_active
+      });
+
+      if (result.success) {
+        alert('สร้างผู้ใช้ใหม่สำเร็จ');
+        onSuccess();
+      } else {
+        setError(result.error);
+      }
+    } catch (error) {
+      setError('เกิดข้อผิดพลาดในการสร้างผู้ใช้');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    if (error) setError('');
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal create-user-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>เพิ่มผู้ใช้ใหม่</h3>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="create-user-form">
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="username">ชื่อผู้ใช้ *</label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                required
+                disabled={loading}
+                className="form-input"
+                placeholder="username"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password">รหัสผ่าน *</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                disabled={loading}
+                className="form-input"
+                placeholder="อย่างน้อย 6 ตัวอักษร"
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="full_name">ชื่อ-นามสกุล *</label>
+            <input
+              type="text"
+              id="full_name"
+              name="full_name"
+              value={formData.full_name}
+              onChange={handleChange}
+              required
+              disabled={loading}
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="email">อีเมล *</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              disabled={loading}
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="phone">เบอร์โทรศัพท์</label>
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              disabled={loading}
+              className="form-input"
+              placeholder="080-xxx-xxxx"
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="user_type">ประเภทผู้ใช้ *</label>
+              <select
+                id="user_type"
+                name="user_type"
+                value={formData.user_type}
+                onChange={handleChange}
+                required
+                disabled={loading}
+                className="form-input"
+              >
+                <option value="Student">Student</option>
+                <option value="HR">HR</option>
+                <option value="Admin">Admin</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="is_active"
+                  checked={formData.is_active}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+                เปิดใช้งานบัญชี
+              </label>
+            </div>
+          </div>
+
+          <div className="modal-actions">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary"
+              disabled={loading}
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading}
+            >
+              {loading ? 'กำลังสร้าง...' : 'สร้างผู้ใช้'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 export default AdminDashboard;

@@ -1,11 +1,13 @@
 // frontend/src/components/Register/Register.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import authService from '../../services/authService';
+import { useAuth } from '../../contexts/AuthContext';
 import '../../styles/register.css';
 
 const Register = () => {
   const navigate = useNavigate();
+  const { register, isAuthenticated } = useAuth();
+  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -19,6 +21,13 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // เปลี่ยนเส้นทางถ้า login อยู่แล้ว
+  useEffect(() => {
+    if (isAuthenticated()) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -84,8 +93,8 @@ const Register = () => {
     setError('');
 
     try {
-      // ✅ เรียก API register
-      const result = await authService.register({
+      // ✅ เรียก register จาก AuthContext
+      const result = await register({
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         username: formData.username.trim(),
@@ -169,6 +178,7 @@ const Register = () => {
                 onChange={handleChange}
                 required
                 disabled={loading}
+                autoComplete="given-name"
               />
             </div>
             
@@ -184,6 +194,7 @@ const Register = () => {
                 onChange={handleChange}
                 required
                 disabled={loading}
+                autoComplete="family-name"
               />
             </div>
           </div>
@@ -200,6 +211,7 @@ const Register = () => {
               onChange={handleChange}
               required
               disabled={loading}
+              autoComplete="username"
             />
           </div>
 
@@ -215,6 +227,7 @@ const Register = () => {
               onChange={handleChange}
               required
               disabled={loading}
+              autoComplete="email"
             />
           </div>
 
@@ -229,6 +242,7 @@ const Register = () => {
               value={formData.phone}
               onChange={handleChange}
               disabled={loading}
+              autoComplete="tel"
             />
           </div>
 
@@ -245,6 +259,7 @@ const Register = () => {
                 onChange={handleChange}
                 required
                 disabled={loading}
+                autoComplete="new-password"
               />
             </div>
             
@@ -260,6 +275,7 @@ const Register = () => {
                 onChange={handleChange}
                 required
                 disabled={loading}
+                autoComplete="new-password"
               />
             </div>
           </div>

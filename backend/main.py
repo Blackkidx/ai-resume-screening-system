@@ -13,6 +13,7 @@ from core.database import connect_to_mongo, close_mongo_connection, test_connect
 
 # Import route modules
 from routes.auth import router as auth_router
+from routes.admin import router as admin_router
 
 # Load environment variables
 load_dotenv()
@@ -49,6 +50,7 @@ app.add_middleware(
 # 📋 INCLUDE ROUTERS - เพิ่ม API endpoints
 # =============================================================================
 app.include_router(auth_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
 
 # =============================================================================
 # 🔄 APP LIFECYCLE EVENTS
@@ -89,10 +91,17 @@ async def root():
         "status": "running",
         "docs": "/docs",
         "api_prefix": "/api",
-        "auth_endpoints": {
-            "register": "/api/auth/register",
-            "login": "/api/auth/login",
-            "me": "/api/auth/me"
+        "endpoints": {
+            "auth": {
+                "register": "/api/auth/register",
+                "login": "/api/auth/login",
+                "me": "/api/auth/me"
+            },
+            "admin": {
+                "dashboard": "/api/admin/dashboard",
+                "users": "/api/admin/users",
+                "create_user": "/api/admin/users"
+            }
         }
     }
 
@@ -161,6 +170,7 @@ if __name__ == "__main__":
     print(f"🌟 Starting server on http://{HOST}:{PORT}")
     print(f"📚 API Documentation: http://{HOST}:{PORT}/docs")
     print(f"🔐 Auth endpoints: http://{HOST}:{PORT}/api/auth/*")
+    print(f"👑 Admin endpoints: http://{HOST}:{PORT}/api/admin/*")
     print(f"🔄 Environment: {os.getenv('ENVIRONMENT', 'development')}")
     
     uvicorn.run(

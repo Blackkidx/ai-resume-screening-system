@@ -3,6 +3,7 @@
 # =============================================================================
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles  # 🆕 เพิ่มบรรทัดนี้
 from fastapi.responses import JSONResponse
 import uvicorn
 import os
@@ -15,7 +16,7 @@ from core.database import connect_to_mongo, close_mongo_connection, test_connect
 from routes.auth import router as auth_router
 from routes.admin import router as admin_router
 from routes.company import router as company_router
-
+from routes.student import router as student_router
 # Load environment variables
 load_dotenv()
 
@@ -29,6 +30,16 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# =============================================================================
+# 📁 STATIC FILES MOUNTING - สำหรับ serve รูปภาพและไฟล์
+# =============================================================================
+# 🆕 เพิ่มส่วนนี้ - Mount uploads folder เพื่อ serve static files
+uploads_path = "uploads"
+if not os.path.exists(uploads_path):
+    os.makedirs(uploads_path)  # สร้าง folder ถ้ายังไม่มี
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # =============================================================================
 # 🌐 CORS MIDDLEWARE - อนุญาตให้ Frontend เรียก API ได้
@@ -53,6 +64,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(company_router, prefix="/api")
+app.include_router(student_router, prefix="/api")
 
 # =============================================================================
 # 🔄 APP LIFECYCLE EVENTS
@@ -66,7 +78,16 @@ async def startup_event():
     """
     print("🚀 Starting AI Resume Screening System...")
     await connect_to_mongo()
+    
+    # 🆕 ตรวจสอบ uploads folder
+    uploads_dirs = ["uploads/profiles", "uploads/resumes", "uploads/companies"]
+    for directory in uploads_dirs:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            print(f"📁 Created directory: {directory}")
+    
     print("🎯 Application started successfully!")
+    print(f"📁 Static files available at: http://localhost:8000/uploads/")
 
 @app.on_event("shutdown") 
 async def shutdown_event():
@@ -93,11 +114,18 @@ async def root():
         "status": "running",
         "docs": "/docs",
         "api_prefix": "/api",
+        "static_files": "/uploads",  # 🆕 เพิ่มข้อมูล static files
         "endpoints": {
             "auth": {
                 "register": "/api/auth/register",
                 "login": "/api/auth/login",
                 "me": "/api/auth/me"
+            },
+            "student": {
+                "profile": "/api/student/profile",
+                "dashboard": "/api/student/dashboard",
+                "upload_image": "/api/student/profile/upload-image",
+                "change_password": "/api/student/change-password"
             },
             "admin": {
                 "dashboard": "/api/admin/dashboard",
@@ -124,15 +152,25 @@ async def health_check():
         # ตรวจสอบการเชื่อมต่อฐานข้อมูล
         db_status = await test_connection()
         
+        # 🆕 ตรวจสอบ uploads directory
+        uploads_status = {
+            "exists": os.path.exists("uploads"),
+            "profiles": os.path.exists("uploads/profiles"),
+            "resumes": os.path.exists("uploads/resumes"),
+            "companies": os.path.exists("uploads/companies")
+        }
+        
         return {
             "status": "healthy",
             "timestamp": "2025-06-08T15:30:00Z",
             "version": "1.0.0",
             "services": {
                 "api": "healthy",
-                "database": db_status["status"]
+                "database": db_status["status"],
+                "static_files": "healthy" if uploads_status["exists"] else "warning"
             },
-            "database_info": db_status
+            "database_info": db_status,
+            "uploads_info": uploads_status  # 🆕 ข้อมูล uploads
         }
     except Exception as e:
         raise HTTPException(
@@ -180,6 +218,7 @@ if __name__ == "__main__":
     print(f"🔐 Auth endpoints: http://{HOST}:{PORT}/api/auth/*")
     print(f"👑 Admin endpoints: http://{HOST}:{PORT}/api/admin/*")
     print(f"🏢 Company endpoints: http://{HOST}:{PORT}/api/companies/*")
+    print(f"📁 Static files: http://{HOST}:{PORT}/uploads/*")  # 🆕 แสดงข้อมูล static files
     print(f"🔄 Environment: {os.getenv('ENVIRONMENT', 'development')}")
     
     uvicorn.run(

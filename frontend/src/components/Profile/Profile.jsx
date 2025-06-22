@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getProfile, updateProfile, uploadProfileImage, changePassword } from '../../services/studentService';
-import '../../styles/Profile.css';  
+import { useAuth } from '../../contexts/AuthContext';
+import { getProfile, updateProfile, uploadProfileImage, changePassword } from '../../services/profileService';
+import '../../styles/Profile.css';
 
 const Profile = () => {
+  const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   
   // Form data
@@ -23,18 +26,12 @@ const Profile = () => {
     new_password: '',
     confirm_password: ''
   });
-  
-  // Image upload
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [uploading, setUploading] = useState(false);
 
   const loadProfile = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getProfile();
-      console.log('Profile data received:', data); // debug ข้อมูล profile
-      console.log('Profile image path:', data.profile_image); // debug path รูป
+      console.log('Profile data received:', data);
       setProfile(data);
       setFormData({
         full_name: data.full_name || '',
@@ -72,7 +69,8 @@ const Profile = () => {
     });
   };
 
-  const handleImageSelect = (e) => {
+  // ฟังก์ชันอัปโหลดรูปอัตโนมัติ
+  const handleImageSelect = async (e) => {
     const file = e.target.files[0];
     if (file) {
       // ตรวจสอบขนาดไฟล์
@@ -87,27 +85,20 @@ const Profile = () => {
         return;
       }
       
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
-  };
-
-  const handleImageUpload = async () => {
-    if (!imageFile) return;
-    
-    try {
-      setUploading(true);
-      console.log('Uploading file:', imageFile.name, imageFile.size);
-      await uploadProfileImage(imageFile);
-      showNotification('success', 'อัปโหลดรูปภาพสำเร็จ!');
-      setImageFile(null);
-      setImagePreview(null);
-      loadProfile();
-    } catch (error) {
-      console.error('Upload error:', error);
-      showNotification('error', error.message || 'ไม่สามารถอัปโหลดรูปภาพได้');
-    } finally {
-      setUploading(false);
+      // อัปโหลดทันทีหลังจากเลือกรูป
+      try {
+        setUploading(true);
+        await uploadProfileImage(file);
+        showNotification('success', 'อัปโหลดรูปภาพสำเร็จ!');
+        await loadProfile(); // รีโหลดข้อมูลใหม่
+      } catch (error) {
+        console.error('Upload error:', error);
+        showNotification('error', error.message || 'ไม่สามารถอัปโหลดรูปภาพได้');
+      } finally {
+        setUploading(false);
+        // รีเซ็ต input file
+        e.target.value = '';
+      }
     }
   };
 
@@ -172,23 +163,17 @@ const Profile = () => {
 
   // ฟังก์ชันสำหรับ URL รูปโปรไฟล์
   const getProfileImageUrl = () => {
-    if (imagePreview) return imagePreview;
     if (profile?.profile_image) {
-      // ถ้าเป็น absolute URL
       if (profile.profile_image.startsWith('http')) {
         return profile.profile_image;
       }
       
       const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-      
-      // ใช้ static files mounting - ง่ายและเร็วที่สุด
       let imagePath = profile.profile_image;
       
-      // ถ้า backend ส่งมาเป็น full path (/uploads/profiles/xxx.jpg)
       if (imagePath.startsWith('/uploads')) {
-        imagePath = imagePath; // ใช้ตรงๆ
+        imagePath = imagePath;
       } else {
-        // ถ้าส่งมาแค่ชื่อไฟล์หรือ partial path
         imagePath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
         if (!imagePath.startsWith('/uploads')) {
           imagePath = `/uploads/profiles${imagePath}`;
@@ -196,11 +181,34 @@ const Profile = () => {
       }
       
       const fullURL = `${baseURL}${imagePath}`;
-      console.log('Profile image URL:', fullURL);
-      console.log('Original path from backend:', profile.profile_image);
       return fullURL;
     }
     return null;
+  };
+
+  // ฟังก์ชันแสดงข้อมูลตาม Role
+  const getRoleDisplayName = (userType) => {
+    switch (userType) {
+      case 'Student': return 'นักศึกษา';
+      case 'HR': return 'เจ้าหน้าที่ HR';
+      case 'Admin': return 'ผู้ดูแลระบบ';
+      default: return userType;
+    }
+  };
+
+  const getRoleBadgeClass = (userType) => {
+    switch (userType) {
+      case 'Student': return 'student-badge';
+      case 'HR': return 'hr-badge';
+      case 'Admin': return 'admin-badge';
+      default: return 'student-badge';
+    }
+  };
+
+  // ฟังก์ชันสำหรับตัดข้อความที่ยาวเกินไป
+  const truncateText = (text, maxLength = 30) => {
+    if (!text) return '-';
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   };
 
   if (loading) {
@@ -234,7 +242,7 @@ const Profile = () => {
       <div className="profile-header fade-in">
         <div className="header-content">
           <div className="profile-avatar-container">
-            <div className="avatar-wrapper">
+            <div className={`avatar-wrapper ${uploading ? 'uploading' : ''}`}>
               {getProfileImageUrl() ? (
                 <img 
                   src={getProfileImageUrl()} 
@@ -243,7 +251,6 @@ const Profile = () => {
                   onLoad={() => console.log('Image loaded successfully')}
                   onError={(e) => {
                     console.error('Image failed to load:', e.target.src);
-                    // ถ้าโหลดรูปไม่ได้ ให้แสดง default avatar
                     e.target.style.display = 'none';
                     const defaultAvatar = e.target.parentNode.querySelector('.default-avatar');
                     if (defaultAvatar) {
@@ -261,6 +268,13 @@ const Profile = () => {
                 {getInitials(profile?.full_name)}
               </div>
               
+              {/* Upload Loading Overlay */}
+              {uploading && (
+                <div className="upload-overlay">
+                  <div className="spinner" style={{ width: '30px', height: '30px' }}></div>
+                </div>
+              )}
+              
               {/* Upload Overlay */}
               <div className="avatar-overlay">
                 <input
@@ -269,23 +283,13 @@ const Profile = () => {
                   accept="image/*"
                   onChange={handleImageSelect}
                   style={{ display: 'none' }}
+                  disabled={uploading}
                 />
                 <label htmlFor="avatar-upload" className="avatar-upload-btn">
-                  {uploading ? <div className="btn-spinner"></div> : '📷'}
+                  {uploading ? '⏳' : '📷'}
                 </label>
               </div>
             </div>
-            
-            {/* Upload Confirm Button */}
-            {imageFile && (
-              <button 
-                onClick={handleImageUpload}
-                disabled={uploading}
-                className="upload-confirm-btn"
-              >
-                {uploading ? 'กำลังอัปโหลด...' : 'บันทึกรูป'}
-              </button>
-            )}
           </div>
           
           <div className="profile-info">
@@ -294,7 +298,9 @@ const Profile = () => {
             </h1>
             <p className="profile-email">{profile?.email}</p>
             <div className="profile-badge">
-              <span className="badge student-badge">นักศึกษา</span>
+              <span className={`badge ${getRoleBadgeClass(profile?.user_type)}`}>
+                {getRoleDisplayName(profile?.user_type)}
+              </span>
             </div>
           </div>
         </div>
@@ -415,7 +421,9 @@ const Profile = () => {
                   <div className="info-icon">👤</div>
                   <div className="info-content">
                     <label>ชื่อผู้ใช้</label>
-                    <span>{profile?.username || profile?.full_name || '-'}</span>
+                    <span title={profile?.username || profile?.full_name || '-'}>
+                      {truncateText(profile?.username || profile?.full_name)}
+                    </span>
                   </div>
                 </div>
 
@@ -423,7 +431,9 @@ const Profile = () => {
                   <div className="info-icon">📧</div>
                   <div className="info-content">
                     <label>อีเมล</label>
-                    <span>{profile?.email || '-'}</span>
+                    <span title={profile?.email || '-'} className="text-ellipsis">
+                      {profile?.email || '-'}
+                    </span>
                   </div>
                 </div>
 
@@ -432,6 +442,14 @@ const Profile = () => {
                   <div className="info-content">
                     <label>เบอร์โทร</label>
                     <span>{profile?.phone || 'ไม่ได้ระบุ'}</span>
+                  </div>
+                </div>
+
+                <div className="info-card">
+                  <div className="info-icon">🏷️</div>
+                  <div className="info-content">
+                    <label>บทบาท</label>
+                    <span>{getRoleDisplayName(profile?.user_type)}</span>
                   </div>
                 </div>
 

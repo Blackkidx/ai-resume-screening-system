@@ -3,7 +3,7 @@
 # =============================================================================
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles  # 🆕 เพิ่มบรรทัดนี้
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import uvicorn
 import os
@@ -17,6 +17,8 @@ from routes.auth import router as auth_router
 from routes.admin import router as admin_router
 from routes.company import router as company_router
 from routes.student import router as student_router
+from routes.profile import router as profile_router  # 🆕 เพิ่มบรรทัดนี้
+
 # Load environment variables
 load_dotenv()
 
@@ -34,10 +36,9 @@ app = FastAPI(
 # =============================================================================
 # 📁 STATIC FILES MOUNTING - สำหรับ serve รูปภาพและไฟล์
 # =============================================================================
-# 🆕 เพิ่มส่วนนี้ - Mount uploads folder เพื่อ serve static files
 uploads_path = "uploads"
 if not os.path.exists(uploads_path):
-    os.makedirs(uploads_path)  # สร้าง folder ถ้ายังไม่มี
+    os.makedirs(uploads_path)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
@@ -47,7 +48,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  # React development server
+        "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
@@ -65,6 +66,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(company_router, prefix="/api")
 app.include_router(student_router, prefix="/api")
+app.include_router(profile_router, prefix="/api")  # 🆕 เพิ่มบรรทัดนี้
 
 # =============================================================================
 # 🔄 APP LIFECYCLE EVENTS
@@ -79,7 +81,7 @@ async def startup_event():
     print("🚀 Starting AI Resume Screening System...")
     await connect_to_mongo()
     
-    # 🆕 ตรวจสอบ uploads folder
+    # ตรวจสอบ uploads folder
     uploads_dirs = ["uploads/profiles", "uploads/resumes", "uploads/companies"]
     for directory in uploads_dirs:
         if not os.path.exists(directory):
@@ -114,18 +116,22 @@ async def root():
         "status": "running",
         "docs": "/docs",
         "api_prefix": "/api",
-        "static_files": "/uploads",  # 🆕 เพิ่มข้อมูล static files
+        "static_files": "/uploads",
         "endpoints": {
             "auth": {
                 "register": "/api/auth/register",
                 "login": "/api/auth/login",
                 "me": "/api/auth/me"
             },
+            "profile": {  # 🆕 เพิ่มส่วนนี้
+                "get_profile": "/api/profile",
+                "update_profile": "/api/profile",
+                "upload_image": "/api/profile/upload-image",
+                "change_password": "/api/profile/change-password",
+                "dashboard": "/api/profile/dashboard"
+            },
             "student": {
-                "profile": "/api/student/profile",
-                "dashboard": "/api/student/dashboard",
-                "upload_image": "/api/student/profile/upload-image",
-                "change_password": "/api/student/change-password"
+                "dashboard": "/api/student/dashboard"
             },
             "admin": {
                 "dashboard": "/api/admin/dashboard",
@@ -152,7 +158,7 @@ async def health_check():
         # ตรวจสอบการเชื่อมต่อฐานข้อมูล
         db_status = await test_connection()
         
-        # 🆕 ตรวจสอบ uploads directory
+        # ตรวจสอบ uploads directory
         uploads_status = {
             "exists": os.path.exists("uploads"),
             "profiles": os.path.exists("uploads/profiles"),
@@ -162,7 +168,7 @@ async def health_check():
         
         return {
             "status": "healthy",
-            "timestamp": "2025-06-08T15:30:00Z",
+            "timestamp": "2025-06-22T15:30:00Z",
             "version": "1.0.0",
             "services": {
                 "api": "healthy",
@@ -170,7 +176,7 @@ async def health_check():
                 "static_files": "healthy" if uploads_status["exists"] else "warning"
             },
             "database_info": db_status,
-            "uploads_info": uploads_status  # 🆕 ข้อมูล uploads
+            "uploads_info": uploads_status
         }
     except Exception as e:
         raise HTTPException(
@@ -216,9 +222,10 @@ if __name__ == "__main__":
     print(f"🌟 Starting server on http://{HOST}:{PORT}")
     print(f"📚 API Documentation: http://{HOST}:{PORT}/docs")
     print(f"🔐 Auth endpoints: http://{HOST}:{PORT}/api/auth/*")
+    print(f"👤 Profile endpoints: http://{HOST}:{PORT}/api/profile/*")  # 🆕 เพิ่มบรรทัดนี้
     print(f"👑 Admin endpoints: http://{HOST}:{PORT}/api/admin/*")
     print(f"🏢 Company endpoints: http://{HOST}:{PORT}/api/companies/*")
-    print(f"📁 Static files: http://{HOST}:{PORT}/uploads/*")  # 🆕 แสดงข้อมูล static files
+    print(f"📁 Static files: http://{HOST}:{PORT}/uploads/*")
     print(f"🔄 Environment: {os.getenv('ENVIRONMENT', 'development')}")
     
     uvicorn.run(

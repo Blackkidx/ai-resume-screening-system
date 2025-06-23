@@ -1,4 +1,4 @@
-// frontend/src/App.js - Updated with Company Management
+// frontend/src/App.js - Updated with Profile Route
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
@@ -10,9 +10,11 @@ import Companies from './components/Companies/Companies';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import CompanyManagement from './components/Admin/CompanyManagement';
 import HRDashboard from './components/HR/HRDashboard';
+import Profile from './components/Profile/Profile';  // 🆕 เพิ่มบรรทัดนี้
 import './styles/global.css';
 import './styles/admin.css';
 import './styles/hr.css';
+
 
 function App() {
   return (
@@ -28,6 +30,7 @@ function App() {
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/companies" element={<CompanyManagement />} />
             <Route path="/hr/dashboard" element={<HRDashboard />} />
+            <Route path="/profile" element={<Profile />} />  {/* 🆕 เพิ่มบรรทัดนี้ */}
             {/* จะเพิ่ม route อื่นๆ ทีหลัง */}
           </Routes>
         </Router>

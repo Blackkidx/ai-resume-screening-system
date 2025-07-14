@@ -6,6 +6,7 @@ import adminService from '../../services/adminService';
 import companyService from '../../services/companyService';
 import CompanyManagement from './CompanyManagement';
 import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
+import '../../styles/admin.css';
 
 const AdminDashboard = () => {
   const { user, isAuthenticated } = useAuth();

@@ -1,6 +1,7 @@
-// frontend/src/contexts/AuthContext.js
+// frontend/src/contexts/AuthContext.js - Fixed Version
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import authService from '../services/authService';
+import profileService from '../services/profileService';
 import LoadingSpinner from '../components/LoadingSpinner/LoadingSpinner';
 
 // สร้าง Context
@@ -29,18 +30,49 @@ export const AuthProvider = ({ children }) => {
 
         if (currentUser && token) {
           // ตรวจสอบว่า token ยังใช้ได้หรือไม่
-          const result = await authService.getMe();
-          if (result.success) {
-            setUser(result.data);
-          } else {
-            // Token หมดอายุ หรือไม่ valid - ลบข้อมูล
+          try {
+            const result = await authService.getMe();
+            if (result.success) {
+              setUser(result.data);
+              
+              // 🎯 ดึงข้อมูลโปรไฟล์ล่าสุดจาก API
+              try {
+                const profileData = await profileService.getProfile();
+                const updatedUser = {
+                  ...result.data,
+                  full_name: profileData.full_name,
+                  email: profileData.email,
+                  phone: profileData.phone,
+                  profile_image: profileData.profile_image,
+                  updated_at: profileData.updated_at
+                };
+                setUser(updatedUser);
+                authService.setCurrentUser(updatedUser);
+              } catch (profileError) {
+                console.warn('Failed to fetch profile on initialization:', profileError);
+                // ถ้าดึงโปรไฟล์ไม่ได้ ใช้ข้อมูลจาก getMe
+                setUser(result.data);
+              }
+            } else {
+              // Token หมดอายุ หรือไม่ valid - ลบข้อมูล
+              authService.removeToken();
+              authService.removeCurrentUser();
+              setUser(null);
+            }
+          } catch (error) {
+            console.error('Token validation failed:', error);
             authService.removeToken();
+            authService.removeCurrentUser();
             setUser(null);
           }
+        } else {
+          // ไม่มี token หรือ user data
+          setUser(null);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
         authService.removeToken();
+        authService.removeCurrentUser();
         setUser(null);
       } finally {
         setLoading(false);
@@ -50,15 +82,45 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  // ฟังก์ชัน login
+  // ฟังก์ชัน login - รักษา format เดิม
   const login = async (credentials) => {
     try {
       const result = await authService.login(credentials);
+      
       if (result.success) {
         setUser(result.data.user_info);
-        return result;
+        
+        // 🎯 ดึงข้อมูลโปรไฟล์ล่าสุดหลัง login
+        try {
+          const profileData = await profileService.getProfile();
+          const updatedUser = {
+            ...result.data.user_info,
+            full_name: profileData.full_name,
+            email: profileData.email,
+            phone: profileData.phone,
+            profile_image: profileData.profile_image,
+            updated_at: profileData.updated_at
+          };
+          setUser(updatedUser);
+          authService.setCurrentUser(updatedUser);
+        } catch (profileError) {
+          console.warn('Failed to fetch profile after login:', profileError);
+          // ใช้ข้อมูลจาก login response
+        }
+        
+        return {
+          success: true,
+          message: 'เข้าสู่ระบบเรียบร้อยแล้ว',
+          data: result.data
+        };
       }
-      return result;
+      
+      // ส่งคืน error ในรูปแบบเดิม
+      return {
+        success: false,
+        error: result.error || result.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ'
+      };
+      
     } catch (error) {
       console.error('Login error:', error);
       return {
@@ -68,11 +130,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ฟังก์ชัน register
+  // ฟังก์ชัน register - รักษา format เดิม
   const register = async (userData) => {
     try {
       const result = await authService.register(userData);
-      return result;
+      
+      if (result.success) {
+        return {
+          success: true,
+          message: 'สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ',
+          data: result.data
+        };
+      }
+      
+      return {
+        success: false,
+        error: result.error || result.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก'
+      };
+      
     } catch (error) {
       console.error('Register error:', error);
       return {
@@ -102,10 +177,37 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ฟังก์ชันอัปเดตข้อมูลผู้ใช้
+  // 🎯 ฟังก์ชันอัปเดตข้อมูลผู้ใช้ (ใช้เมื่อแก้ไขโปรไฟล์)
   const updateUser = (userData) => {
-    setUser(userData);
-    authService.setCurrentUser(userData);
+    const updatedUser = {
+      ...user,
+      ...userData
+    };
+    setUser(updatedUser);
+    authService.setCurrentUser(updatedUser);
+  };
+
+  // 🎯 ฟังก์ชัน sync ข้อมูลโปรไฟล์ล่าสุด
+  const syncProfile = async () => {
+    if (!isAuthenticated()) return;
+    
+    try {
+      const profileData = await profileService.getProfile();
+      const updatedUser = {
+        ...user,
+        full_name: profileData.full_name,
+        email: profileData.email,
+        phone: profileData.phone,
+        profile_image: profileData.profile_image,
+        updated_at: profileData.updated_at
+      };
+      setUser(updatedUser);
+      authService.setCurrentUser(updatedUser);
+      return updatedUser;
+    } catch (error) {
+      console.error('Failed to sync profile:', error);
+      throw error;
+    }
   };
 
   // ตรวจสอบว่า user login อยู่หรือไม่
@@ -119,16 +221,69 @@ export const AuthProvider = ({ children }) => {
     return user.user_type === role || (user.roles && user.roles.includes(role));
   };
 
+  // 🎯 ฟังก์ชันช่วยเหลือสำหรับโปรไฟล์
+  const getInitials = (fullName) => {
+    if (!fullName) return 'U';
+    
+    const names = fullName.split(' ');
+    if (names.length >= 2) {
+      return (names[0][0] + names[1][0]).toUpperCase();
+    }
+    return names[0][0].toUpperCase();
+  };
+
+  const getDisplayName = (fullName) => {
+    if (!fullName) return 'User';
+    
+    const names = fullName.split(' ');
+    if (names.length >= 2) {
+      return names[0]; // แสดงแค่ชื่อ
+    }
+    return fullName;
+  };
+
+  const getProfileImageUrl = () => {
+    const imageUrl = user?.profile_image;
+    
+    if (imageUrl) {
+      // ถ้าเป็น URL เต็ม ใช้เลย
+      if (imageUrl.startsWith('http')) {
+        return imageUrl;
+      }
+      // ถ้าเป็น path สัมพัทธ์ เพิ่ม base URL
+      return `http://localhost:8000${imageUrl}`;
+    }
+    
+    return null;
+  };
+
   // Context value
   const value = {
+    // Core auth data
     user,
     loading,
+    
+    // Auth methods - รักษา format เดิม
     isAuthenticated,
     hasRole,
     login,
     register,
     logout,
-    updateUser
+    
+    // Profile methods
+    updateUser,
+    syncProfile,
+    
+    // Helper methods
+    getInitials,
+    getDisplayName,
+    getProfileImageUrl,
+    
+    // Computed properties
+    hasProfileImage: !!getProfileImageUrl(),
+    fullName: user?.full_name || '',
+    email: user?.email || '',
+    userType: user?.user_type || ''
   };
 
   return (
@@ -143,3 +298,5 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+
+export default AuthContext;

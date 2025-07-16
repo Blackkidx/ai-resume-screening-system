@@ -1,4 +1,4 @@
-// frontend/src/components/Profile/NewProfile.jsx - ระบบใหม่ทั้งหมด
+// frontend/src/components/Profile/Profile.jsx - ระบบใหม่ทั้งหมด
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import profileService from '../../services/profileService';
@@ -72,7 +72,7 @@ const Profile = () => {
 
   return (
     <div className="new-profile-container">
-      {/* Header Section ใหม่ - ตามรูปที่ให้ */}
+      {/* Header Section ใหม่ - เพิ่มปุ่มแก้ไขรูปกลับมา */}
       <div className="new-profile-header">
         <div className="new-profile-avatar">
           {profileData?.profile_image ? (
@@ -110,11 +110,12 @@ const Profile = () => {
               </svg>
             </label>
           </div>
+
         </div>
         
         <div className="new-profile-header-info">
           <h1>{profileData?.full_name || 'System Administrator'}</h1>
-          <p className="new-profile-email">{profileData?.email || 'admin@internscreen.com'}</p>
+          <p className="new-profile-email">{profileData?.email}</p>
           <span className="new-profile-role">{profileData?.user_type || 'ผู้ดูแลระบบ'}</span>
         </div>
       </div>

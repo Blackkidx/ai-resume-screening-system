@@ -12,8 +12,7 @@ import CompanyManagement from './components/Admin/CompanyManagement';
 import HRDashboard from './components/HR/HRDashboard';
 import Profile from './components/Profile/Profile';  // 🆕 เพิ่มบรรทัดนี้
 import './styles/global.css';
-import './styles/admin.css';
-import './styles/hr.css';
+
 
 
 function App() {

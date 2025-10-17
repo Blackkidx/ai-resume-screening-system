@@ -1,11 +1,11 @@
-// frontend/src/components/Profile/Profile.jsx
+// frontend/src/components/Profile/Profile.jsx - ระบบใหม่ทั้งหมด
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import profileService from '../../services/profileService'; // 🔗 Import Service
-import ProfileInfo from './ProfileInfo';
-import ChangePassword from './ChangePassword';
-import Settings from './Settings';
-import '../../styles/profile.css';
+import profileService from '../../services/profileService';
+import NewProfileInfo from './ProfileInfo';
+import NewChangePassword from './ChangePassword';
+import NewSettings from './Settings';
+import '../../styles/profile.css'; // CSS ใหม่
 
 const Profile = () => {
   const { user } = useAuth();
@@ -21,7 +21,7 @@ const Profile = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const data = await profileService.getProfile(); // 🔗 ใช้ Service
+      const data = await profileService.getProfile();
       setProfileData(data);
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -50,27 +50,6 @@ const Profile = () => {
     }
   };
 
-  // ฟังก์ชันลบรูปโปรไฟล์
-  const handleImageDelete = async () => {
-    if (!profileData?.profile_image) return;
-
-    if (window.confirm('คุณต้องการลบรูปโปรไฟล์หรือไม่?')) {
-      try {
-        setLoading(true);
-        await profileService.deleteProfileImage();
-        
-        // รีเฟรชข้อมูลโปรไฟล์
-        await fetchProfile();
-        alert('ลบรูปโปรไฟล์เรียบร้อยแล้ว');
-      } catch (error) {
-        console.error('Error deleting image:', error);
-        alert(`เกิดข้อผิดพลาด: ${error.message}`);
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
   const getInitials = (fullName) => {
     if (!fullName) return 'U';
     const names = fullName.split(' ');
@@ -82,7 +61,7 @@ const Profile = () => {
 
   if (loading) {
     return (
-      <div className="profile-container">
+      <div className="new-profile-container">
         <div className="profile-loading">
           <div className="profile-spinner"></div>
           <p>กำลังโหลดข้อมูล...</p>
@@ -92,10 +71,10 @@ const Profile = () => {
   }
 
   return (
-    <div className="profile-container">
-      {/* Header Section */}
-      <div className="profile-header">
-        <div className="profile-avatar">
+    <div className="new-profile-container">
+      {/* Header Section ใหม่ - เพิ่มปุ่มแก้ไขรูปกลับมา */}
+      <div className="new-profile-header">
+        <div className="new-profile-avatar">
           {profileData?.profile_image ? (
             <img 
               src={`http://localhost:8000${profileData.profile_image}`} 
@@ -108,51 +87,43 @@ const Profile = () => {
             </div>
           )}
           
-          {/* ปุ่มแก้ไขรูปโปรไฟล์ */}
-          <div className="profile-edit-avatar-btn">
+          {/* ปุ่มแก้ไขรูปโปรไฟล์ - เปลี่ยน icon เป็นกล้อง */}
+          <div className="new-profile-edit-avatar-btn">
             <input
               type="file"
-              id="avatar-upload"
+              id="new-avatar-upload"
               accept="image/jpeg,image/jpg,image/png"
               onChange={(e) => handleImageUpload(e.target.files[0])}
               style={{ display: 'none' }}
             />
-            <label htmlFor="avatar-upload" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            <label htmlFor="new-avatar-upload" style={{ 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              width: '100%', 
+              height: '100%' 
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
               </svg>
             </label>
           </div>
 
-          {/* ปุ่มลบรูป (แสดงเฉพาะเมื่อมีรูป) */}
-          {profileData?.profile_image && (
-            <button 
-              className="profile-delete-avatar-btn"
-              onClick={handleImageDelete}
-              title="ลบรูปโปรไฟล์"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <polyline points="3,6 5,6 21,6"/>
-                <path d="M19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"/>
-                <line x1="10" y1="11" x2="10" y2="17"/>
-                <line x1="14" y1="11" x2="14" y2="17"/>
-              </svg>
-            </button>
-          )}
         </div>
         
-        <div className="profile-header-info">
+        <div className="new-profile-header-info">
           <h1>{profileData?.full_name || 'System Administrator'}</h1>
-          <p className="profile-email">{profileData?.email}</p>
-          <span className="profile-role">{profileData?.user_type}</span>
+          <p className="new-profile-email">{profileData?.email}</p>
+          <span className="new-profile-role">{profileData?.user_type || 'ผู้ดูแลระบบ'}</span>
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="profile-tabs">
+      {/* Tab Navigation ใหม่ */}
+      <div className="new-profile-tabs">
         <button 
-          className={`profile-tab-button ${activeTab === 'profile' ? 'active' : ''}`}
+          className={`new-profile-tab-button ${activeTab === 'profile' ? 'active' : ''}`}
           onClick={() => setActiveTab('profile')}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -163,7 +134,7 @@ const Profile = () => {
         </button>
 
         <button 
-          className={`profile-tab-button ${activeTab === 'password' ? 'active' : ''}`}
+          className={`new-profile-tab-button ${activeTab === 'password' ? 'active' : ''}`}
           onClick={() => setActiveTab('password')}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -171,11 +142,11 @@ const Profile = () => {
             <circle cx="12" cy="16" r="1"/>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
-          แก้ไขรหัสผ่าน
+          เปลี่ยนรหัสผ่าน
         </button>
 
         <button 
-          className={`profile-tab-button ${activeTab === 'settings' ? 'active' : ''}`}
+          className={`new-profile-tab-button ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveTab('settings')}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -187,26 +158,26 @@ const Profile = () => {
       </div>
 
       {/* Tab Content */}
-      <div className="profile-content">
-        {activeTab === 'profile' && (
-          <ProfileInfo 
-            profileData={profileData} 
-            onUpdateProfile={fetchProfile}
-            profileService={profileService} // 🔗 ส่ง Service ให้ Child
-          />
-        )}
-        {activeTab === 'password' && (
-          <ChangePassword 
-            profileService={profileService} // 🔗 ส่ง Service ให้ Child
-          />
-        )}
-        {activeTab === 'settings' && (
-          <Settings 
-            profileData={profileData}
-            profileService={profileService} // 🔗 ส่ง Service ให้ Child
-          />
-        )}
-      </div>
+      {activeTab === 'profile' && (
+        <NewProfileInfo 
+          profileData={profileData}
+          onUpdateProfile={fetchProfile}
+          profileService={profileService}
+        />
+      )}
+
+      {activeTab === 'password' && (
+        <NewChangePassword 
+          profileService={profileService}
+        />
+      )}
+
+      {activeTab === 'settings' && (
+        <NewSettings 
+          profileData={profileData}
+          profileService={profileService}
+        />
+      )}
     </div>
   );
 };

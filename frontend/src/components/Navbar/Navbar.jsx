@@ -1,4 +1,4 @@
-// frontend/src/components/Navbar/Navbar.jsx - Updated with HR Dashboard
+// frontend/src/components/Navbar/Navbar.jsx - Enhanced Dropdown Design
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -6,7 +6,15 @@ import '../../styles/navbar.css';
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const { user, logout: authLogout, isAuthenticated } = useAuth();
+  const { 
+    user, 
+    logout: authLogout, 
+    isAuthenticated,
+    getInitials,
+    getDisplayName,
+    getProfileImageUrl
+  } = useAuth();
+  
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -46,49 +54,48 @@ const Navbar = () => {
     navigate('/profile');
   };
 
-  // ⭐ ฟังก์ชันไปหน้า Admin Dashboard
-  const handleAdminDashboard = () => {
+  // ⭐ ฟังก์ชันไปหน้า Dashboard (รวม Admin & HR)
+  const handleDashboard = () => {
     setIsDropdownOpen(false);
-    navigate('/admin/dashboard');
-  };
-
-  // ⭐ ฟังก์ชันไปหน้า HR Dashboard
-  const handleHRDashboard = () => {
-    setIsDropdownOpen(false);
-    navigate('/hr/dashboard');
-  };
-
-  // ฟังก์ชันสำหรับแสดงชื่อย่อ
-  const getInitials = (fullName) => {
-    if (!fullName) return 'U';
     
-    const names = fullName.split(' ');
-    if (names.length >= 2) {
-      return (names[0][0] + names[1][0]).toUpperCase();
+    if (user?.user_type === 'Admin') {
+      navigate('/admin/dashboard');
+    } else if (user?.user_type === 'HR') {
+      navigate('/hr/dashboard');
     }
-    return names[0][0].toUpperCase();
   };
 
-  // ฟังก์ชันแสดงชื่อสั้น
-  const getDisplayName = (fullName) => {
-    if (!fullName) return 'User';
-    
-    const names = fullName.split(' ');
-    if (names.length >= 2) {
-      return names[0]; // แสดงแค่ชื่อ
+  // ⭐ ตรวจสอบว่าเป็น Admin หรือ HR
+  const hasSpecialRole = () => {
+    return user && (user.user_type === 'Admin' || user.user_type === 'HR');
+  };
+
+  // 🎯 ได้รับ URL รูปโปรไฟล์จาก AuthContext
+  const profileImageUrl = getProfileImageUrl();
+
+  // 🎨 ฟังก์ชันกำหนดสีและไอคอนตาม role
+  const getDashboardConfig = () => {
+    if (user?.user_type === 'Admin') {
+      return {
+        title: 'Admin Dashboard',
+        icon: '👑',
+        gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        textColor: '#667eea',
+        bgColor: '#f0f4ff'
+      };
+    } else if (user?.user_type === 'HR') {
+      return {
+        title: 'HR Dashboard',
+        icon: '💼',
+        gradient: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+        textColor: '#059669',
+        bgColor: '#ecfdf5'
+      };
     }
-    return fullName;
+    return null;
   };
 
-  // ⭐ ตรวจสอบว่าเป็น Admin หรือไม่
-  const isAdmin = () => {
-    return user && (user.user_type === 'Admin' || (user.roles && user.roles.includes('Admin')));
-  };
-
-  // ⭐ ตรวจสอบว่าเป็น HR หรือไม่
-  const isHR = () => {
-    return user && (user.user_type === 'HR' || (user.roles && user.roles.includes('HR')));
-  };
+  const dashboardConfig = getDashboardConfig();
 
   return (
     <nav className="navbar">
@@ -111,11 +118,31 @@ const Navbar = () => {
                   className="user-button"
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 >
+                  {/* 🎯 แสดงรูปโปรไฟล์จริงหรือ Avatar placeholder */}
                   <div className="user-avatar">
-                    {getInitials(user.full_name)}
+                    {profileImageUrl ? (
+                      <img 
+                        src={profileImageUrl} 
+                        alt="Profile" 
+                        className="user-avatar-image"
+                        onError={(e) => {
+                          // ถ้าโหลดรูปไม่ได้ ซ่อนรูปและแสดง initials
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className="user-avatar-placeholder"
+                      style={{
+                        display: profileImageUrl ? 'none' : 'flex'
+                      }}
+                    >
+                      {getInitials(user?.full_name)}
+                    </div>
                   </div>
                   <span className="user-name">
-                    {getDisplayName(user.full_name)}
+                    {getDisplayName(user?.full_name)}
                   </span>
                   <svg 
                     className={`dropdown-arrow ${isDropdownOpen ? 'open' : ''}`}
@@ -129,73 +156,112 @@ const Navbar = () => {
                   </svg>
                 </button>
 
-                {/* Dropdown Menu */}
+                {/* 🎨 Enhanced Dropdown Menu */}
                 {isDropdownOpen && (
-                  <div className="dropdown-menu">
+                  <div className="dropdown-menu enhanced">
+                    
+                    {/* User Info Header */}
                     <div className="dropdown-header">
-                      <div className="user-info">
-                        <p className="user-full-name">{user.full_name}</p>
-                        <p className="user-email">{user.email}</p>
-                        <span className="user-role">{user.user_type}</span>
+                      <div className="user-info-card">
+                        <div className="user-avatar-large">
+                          {profileImageUrl ? (
+                            <img 
+                              src={profileImageUrl} 
+                              alt="Profile" 
+                              className="user-avatar-large-image"
+                            />
+                          ) : (
+                            <div className="user-avatar-large-placeholder">
+                              {getInitials(user?.full_name)}
+                            </div>
+                          )}
+                        </div>
+                        <div className="user-details">
+                          <h4 className="user-full-name">{user?.full_name}</h4>
+                          <p className="user-email">{user?.email}</p>
+                          <span className="user-role-badge">{user?.user_type}</span>
+                        </div>
                       </div>
                     </div>
                     
-                    <div className="dropdown-divider"></div>
+                    {/* Dashboard Section - เน้นพิเศษ */}
+                    {hasSpecialRole() && dashboardConfig && (
+                      <>
+                        <div className="dropdown-section dashboard-section">
+                          <button 
+                            className="dropdown-item dashboard-item"
+                            onClick={handleDashboard}
+                            style={{
+                              background: dashboardConfig.bgColor,
+                              borderLeft: `4px solid ${dashboardConfig.textColor}`
+                            }}
+                          >
+                            <div className="dashboard-icon" style={{ 
+                              background: dashboardConfig.gradient 
+                            }}>
+                              <span className="dashboard-emoji">{dashboardConfig.icon}</span>
+                            </div>
+                            <div className="dashboard-content">
+                              <span className="dashboard-title" style={{ 
+                                color: dashboardConfig.textColor 
+                              }}>
+                                {dashboardConfig.title}
+                              </span>
+                              <span className="dashboard-subtitle">
+                                จัดการระบบและข้อมูล
+                              </span>
+                            </div>
+                            <svg 
+                              className="dashboard-arrow" 
+                              width="20" 
+                              height="20" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor"
+                              style={{ color: dashboardConfig.textColor }}
+                            >
+                              <polyline points="9,18 15,12 9,6"></polyline>
+                            </svg>
+                          </button>
+                        </div>
+                        
+                        <div className="dropdown-divider"></div>
+                      </>
+                    )}
                     
-                    <div className="dropdown-items">
-                      {/* ⭐ แสดง Admin Dashboard สำหรับ Admin เท่านั้น */}
-                      {isAdmin() && (
-                        <button 
-                          className="dropdown-item admin-item"
-                          onClick={handleAdminDashboard}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                            <line x1="9" y1="9" x2="15" y2="9"></line>
-                            <line x1="9" y1="13" x2="15" y2="13"></line>
-                            <line x1="9" y1="17" x2="15" y2="17"></line>
-                          </svg>
-                          👑 Admin Dashboard
-                        </button>
-                      )}
-
-                      {/* ⭐ แสดง HR Dashboard สำหรับ HR เท่านั้น */}
-                      {isHR() && (
-                        <button 
-                          className="dropdown-item hr-item"
-                          onClick={handleHRDashboard}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                          </svg>
-                          💼 HR Dashboard
-                        </button>
-                      )}
-                      
+                    {/* Regular Menu Items */}
+                    <div className="dropdown-section">
                       <button 
-                        className="dropdown-item"
+                        className="dropdown-item regular-item"
                         onClick={handleProfile}
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                          <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                        แก้ไขโปรไฟล์
+                        <div className="item-icon">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                          </svg>
+                        </div>
+                        <div className="item-content">
+                          <span className="item-title">แก้ไขโปรไฟล์</span>
+                          <span className="item-subtitle">จัดการข้อมูลส่วนตัว</span>
+                        </div>
                       </button>
                       
                       <button 
-                        className="dropdown-item logout"
+                        className="dropdown-item regular-item logout-item"
                         onClick={handleLogout}
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                          <polyline points="16,17 21,12 16,7"></polyline>
-                          <line x1="21" y1="12" x2="9" y2="12"></line>
-                        </svg>
-                        ออกจากระบบ
+                        <div className="item-icon logout-icon">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16,17 21,12 16,7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                          </svg>
+                        </div>
+                        <div className="item-content">
+                          <span className="item-title">ออกจากระบบ</span>
+                          <span className="item-subtitle">ปิดเซสชันปัจจุบัน</span>
+                        </div>
                       </button>
                     </div>
                   </div>

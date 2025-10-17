@@ -188,3 +188,24 @@ class CompanyHRResponse(BaseModel):
     is_active: bool
     assigned_at: datetime
     last_login: Optional[datetime] = None
+    
+    # เพิ่มที่ส่วนท้ายไฟล์
+class ResumeUploadResponse(BaseModel):
+    id: str
+    user_id: str
+    file_name: str
+    file_path: str
+    file_size: int
+    status: str
+    uploaded_at: datetime
+    message: str
+
+class ResumeStatusResponse(BaseModel):
+    id: str
+    status: str
+    uploaded_at: datetime
+    processed_at: Optional[datetime]
+    file_name: str
+    file_size: int
+    text_length: int
+    error_message: Optional[str]

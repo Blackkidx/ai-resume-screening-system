@@ -24,6 +24,7 @@ from routes.admin import router as admin_router
 from routes.company import router as company_router
 from routes.student import router as student_router
 from routes.profile import router as profile_router
+from routes.resume import router as resume_router
 
 # ลอง import job router แบบ safe
 try:
@@ -83,6 +84,7 @@ app.include_router(admin_router, prefix="/api")
 app.include_router(company_router, prefix="/api")
 app.include_router(student_router, prefix="/api")
 app.include_router(profile_router, prefix="/api")
+app.include_router(resume_router, prefix="/api")
 
 # Include job router เฉพาะเมื่อใช้ได้
 if JOB_ROUTER_AVAILABLE and job_router is not None:
@@ -222,7 +224,6 @@ async def health_check():
 # =============================================================================
 # 📋 MANUAL JOB ENDPOINTS (เพราะ job router ไม่ทำงาน)
 # =============================================================================
-
 @app.get("/api/jobs/test")
 async def manual_test_jobs():
     """🧪 ทดสอบ Jobs API (Manual)"""
@@ -245,7 +246,9 @@ async def manual_get_jobs(
 ):
     """📋 ดึงรายการงานทั้งหมด (Manual)"""
     try:
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
         # สร้าง filter query
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
         filter_query = {"is_active": True}
         
         # ค้นหาด้วยข้อความ
@@ -265,16 +268,23 @@ async def manual_get_jobs(
         if is_remote is not None:
             filter_query["is_remote"] = is_remote
         
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
         # ดึงข้อมูลจากฐานข้อมูล
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
         cursor = db.jobs.find(filter_query).sort("created_at", -1).skip(skip).limit(limit)
         jobs = await cursor.to_list(length=limit)
         
-        # แปลง ObjectId เป็น string และเตรียมข้อมูล
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # ⭐ แปลง ObjectId เป็น string
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
         result_jobs = []
         for job in jobs:
+            # 🔑 แปลง _id (ObjectId) เป็น string
             job["id"] = str(job["_id"])
+            # ลบ _id เดิมออก (ไม่จำเป็น)
+            job.pop("_id", None)
             
-            # ตั้งค่า default values ถ้าไม่มี
+            # ตั้งค่า default ถ้าไม่มี
             job.setdefault("company_name", "Unknown Company")
             job.setdefault("requirements", [])
             job.setdefault("skills_required", [])
@@ -284,7 +294,9 @@ async def manual_get_jobs(
             job.setdefault("positions_available", 1)
             job.setdefault("applications_count", 0)
             
-            # แปลง datetime เป็น string ถ้าเป็น datetime object
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━
+            # แปลง datetime เป็น string
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━
             if "created_at" in job:
                 if hasattr(job["created_at"], "isoformat"):
                     job["created_at"] = job["created_at"].isoformat()
@@ -319,46 +331,92 @@ async def manual_get_job_by_id(
     job_id: str,
     db=Depends(get_database)
 ):
-    """📋 ดึงข้อมูลงานตาม ID (Manual)"""
+    """📋 ดึงรายละเอียดงานตาม ID (Manual)"""
     try:
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # ขั้นที่ 1: ตรวจสอบว่า job_id ถูกต้องหรือไม่
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
         from bson import ObjectId
         
         if not ObjectId.is_valid(job_id):
-            return {
-                "error": "Invalid job ID format",
-                "job_id": job_id
-            }
+            # 📝 ObjectId.is_valid(): เช็คว่า string สามารถแปลงเป็น ObjectId ได้หรือไม่
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid job ID format"
+            )
         
-        job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # ขั้นที่ 2: ดึงข้อมูลจาก Database
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
+        job = await db.jobs.find_one({
+            "_id": ObjectId(job_id)
+            # 📝 แปลง string → ObjectId เพื่อค้นหา
+        })
+        
         if not job:
-            return {
-                "error": "Job not found",
-                "job_id": job_id
-            }
+            raise HTTPException(
+                status_code=404,
+                detail="Job not found"
+            )
         
-        # แปลงข้อมูล
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # ขั้นที่ 3: แปลง ObjectId → string ⭐
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
         job["id"] = str(job["_id"])
+        # 📝 แปลง ObjectId เป็น string
+        
+        del job["_id"]
+        # 📝 ลบ _id ออก (ไม่ต้องการแล้ว)
+        
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # ขั้นที่ 4: ตั้งค่า default
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
         job.setdefault("company_name", "Unknown Company")
         job.setdefault("requirements", [])
         job.setdefault("skills_required", [])
+        job.setdefault("salary_min", None)
+        job.setdefault("salary_max", None)
+        job.setdefault("is_remote", False)
+        job.setdefault("positions_available", 1)
         job.setdefault("applications_count", 0)
         
-        # แปลง datetime
-        if "created_at" in job and hasattr(job["created_at"], "isoformat"):
-            job["created_at"] = job["created_at"].isoformat()
-        if "updated_at" in job and hasattr(job["updated_at"], "isoformat"):
-            job["updated_at"] = job["updated_at"].isoformat()
-        if "application_deadline" in job and hasattr(job["application_deadline"], "isoformat"):
-            job["application_deadline"] = job["application_deadline"].isoformat()
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # ขั้นที่ 5: แปลง datetime → string
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
+        if "created_at" in job:
+            if hasattr(job["created_at"], "isoformat"):
+                job["created_at"] = job["created_at"].isoformat()
+            elif not isinstance(job["created_at"], str):
+                job["created_at"] = str(job["created_at"])
         
+        if "updated_at" in job:
+            if hasattr(job["updated_at"], "isoformat"):
+                job["updated_at"] = job["updated_at"].isoformat()
+            elif not isinstance(job["updated_at"], str):
+                job["updated_at"] = str(job["updated_at"])
+        
+        if "application_deadline" in job:
+            if hasattr(job["application_deadline"], "isoformat"):
+                job["application_deadline"] = job["application_deadline"].isoformat()
+            elif not isinstance(job["application_deadline"], str):
+                job["application_deadline"] = str(job["application_deadline"])
+        
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # ขั้นที่ 6: ส่งกลับ
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━
         return job
         
+    except HTTPException:
+        # 📝 HTTPException: Error ที่เรายกขึ้นเอง (400, 404)
+        raise
+        
     except Exception as e:
-        return {
-            "error": str(e),
-            "job_id": job_id,
-            "message": "Error fetching job but API is working"
-        }
+        # 📝 Exception อื่นๆ: Error ที่ไม่คาดคิด
+        print(f"❌ Error in get_job_by_id: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching job: {str(e)}"
+        )
 
 @app.post("/api/jobs")
 async def manual_create_job(
@@ -394,66 +452,6 @@ async def manual_create_job(
             "error": str(e),
             "message": "Error creating job but API is working",
             "status": "error"
-        }
-
-@app.get("/api/jobs/statistics/overview")
-async def manual_jobs_statistics(db=Depends(get_database)):
-    """📊 สถิติภาพรวมของงาน (Manual)"""
-    try:
-        # สถิติทั่วไป
-        total_jobs = await db.jobs.count_documents({})
-        active_jobs = await db.jobs.count_documents({"is_active": True})
-        remote_jobs = await db.jobs.count_documents({"is_active": True, "is_remote": True})
-        onsite_jobs = active_jobs - remote_jobs
-        
-        return {
-            "total_jobs": total_jobs,
-            "active_jobs": active_jobs,
-            "inactive_jobs": total_jobs - active_jobs,
-            "remote_jobs": remote_jobs,
-            "onsite_jobs": onsite_jobs,
-            "total_applications": 0,  # Mock ก่อน
-            "avg_applications_per_job": 0.0,
-            "by_department": {},
-            "by_location": {},
-            "database_source": True,
-            "source": "main.py",
-            "timestamp": "2025-07-05"
-        }
-        
-    except Exception as e:
-        return {
-            "total_jobs": 0,
-            "active_jobs": 0,
-            "error": str(e),
-            "source": "main.py"
-        }
-
-@app.get("/api/jobs/departments")
-async def manual_get_departments(db=Depends(get_database)):
-    """🏢 ดึงรายการแผนกทั้งหมด (Manual)"""
-    try:
-        # ดึงแผนกที่มีงานอยู่
-        pipeline = [
-            {"$match": {"is_active": True}},
-            {"$group": {"_id": "$department"}},
-            {"$sort": {"_id": 1}}
-        ]
-        dept_cursor = db.jobs.aggregate(pipeline)
-        departments = [item["_id"] async for item in dept_cursor]
-        
-        return {
-            "departments": departments,
-            "count": len(departments),
-            "source": "main.py"
-        }
-        
-    except Exception as e:
-        return {
-            "departments": ["IT", "Marketing", "Finance", "Design"],
-            "count": 4,
-            "error": str(e),
-            "source": "main.py"
         }
 
 # =============================================================================
@@ -499,7 +497,9 @@ if __name__ == "__main__":
     print(f"👑 Admin endpoints: http://{HOST}:{PORT}/api/admin/*")
     print(f"🏢 Company endpoints: http://{HOST}:{PORT}/api/companies/*")
     print(f"📁 Static files: http://{HOST}:{PORT}/uploads/*")
+    print(f"📄 Resume endpoints: http://{HOST}:{PORT}/api/resumes/*")
     print(f"🔄 Environment: {os.getenv('ENVIRONMENT', 'development')}")
+   
     
     uvicorn.run(
         "main:app",

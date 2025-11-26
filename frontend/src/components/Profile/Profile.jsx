@@ -1,6 +1,6 @@
 // frontend/src/components/Profile/Profile.jsx - ระบบใหม่ทั้งหมด
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+// ✅ ลบ import useAuth ออก เพราะไม่ได้ใช้
 import profileService from '../../services/profileService';
 import NewProfileInfo from './ProfileInfo';
 import NewChangePassword from './ChangePassword';
@@ -8,7 +8,7 @@ import NewSettings from './Settings';
 import '../../styles/profile.css'; // CSS ใหม่
 
 const Profile = () => {
-  const { user } = useAuth();
+  // ✅ ลบ const { user } = useAuth(); ออก
   const [activeTab, setActiveTab] = useState('profile');
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);

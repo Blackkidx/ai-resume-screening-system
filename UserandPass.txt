@@ -1,6 +1,6 @@
 💼 HR Test Account
-├── Username: hr_test,hr2_test
-├── Password: hr1234
+├── Username: testhr,hr2_test
+├── Password: testhr123456
 ├── Role: HR
 └── Purpose: ทดสอบฟีเจอร์ HR
 
@@ -11,8 +11,8 @@
 └── Purpose: ทดสอบฟีเจอร์ Student
 
 👑 Admin User
-├── Username: admin_test
-├── Password: admin12345
+├── Username: admin
+├── Password: admin123456
 ├── Role: Admin (สิทธิ์เต็ม)
 └── Purpose: จัดการระบบทั้งหมด
 

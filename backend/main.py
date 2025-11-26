@@ -26,6 +26,7 @@ from routes.student import router as student_router
 from routes.profile import router as profile_router
 from routes.resume import router as resume_router
 
+from core.auth import get_current_user_data
 # ลอง import job router แบบ safe
 try:
     from routes.job import router as job_router
@@ -329,6 +330,7 @@ async def manual_get_jobs(
 @app.get("/api/jobs/{job_id}")
 async def manual_get_job_by_id(
     job_id: str,
+    current_user: dict = Depends(get_current_user_data),
     db=Depends(get_database)
 ):
     """📋 ดึงรายละเอียดงานตาม ID (Manual)"""

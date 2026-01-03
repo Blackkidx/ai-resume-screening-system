@@ -11,13 +11,8 @@
 └── Purpose: ทดสอบฟีเจอร์ Student
 
 👑 Admin User
-<<<<<<< HEAD
 ├── Username: admin_test, admin_dontedit
 ├── Password: admin12345
-=======
-├── Username: admin
-├── Password: admin123456
->>>>>>> 2c41b24b8ebec8a46663de252da134c19c69bb88
 ├── Role: Admin (สิทธิ์เต็ม)
 └── Purpose: จัดการระบบทั้งหมด
 

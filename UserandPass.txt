@@ -1,12 +1,12 @@
 💼 HR Test Account
-├── Username: testhr,hr2_test,hr_test
-├── Password: testhr123456
+├── Username: hr_test
+├── Password: hr12345
 ├── Role: HR
 └── Purpose: ทดสอบฟีเจอร์ HR
 
 🎓 Student Test Account  
 ├── Username: student_test
-├── Password: student1234
+├── Password: student12345
 ├── Role: Student  
 └── Purpose: ทดสอบฟีเจอร์ Student
 

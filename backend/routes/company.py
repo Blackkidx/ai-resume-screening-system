@@ -474,7 +474,7 @@ async def assign_hr_to_company(
                     errors.append(f"User {user['username']} is not HR")
                     continue
                 
-                # ตรวจสอบว่า assign แล้วหรือยัง
+                # ⭐ FIX: ตรวจสอบว่า user มี assignment กับบริษัทนี้อยู่แล้วหรือไม่
                 existing_assignment = await db.company_hr_assignments.find_one({
                     "company_id": company["_id"],
                     "user_id": user["_id"]
@@ -484,7 +484,16 @@ async def assign_hr_to_company(
                     errors.append(f"User {user['username']} already assigned to this company")
                     continue
                 
-                # สร้าง assignment
+                # ⭐ FIX: ลบ assignment เก่าทั้งหมดของ user นี้ก่อน (ถ้ามี)
+                # เพื่อให้ HR แต่ละคนสามารถมีสิทธิ์เข้าถึงได้เพียง 1 บริษัทเท่านั้น
+                old_assignments = await db.company_hr_assignments.delete_many({
+                    "user_id": user["_id"]
+                })
+                
+                if old_assignments.deleted_count > 0:
+                    print(f"🔄 Removed {old_assignments.deleted_count} old assignment(s) for user {user['username']}")
+                
+                # สร้าง assignment ใหม่
                 assignment_doc = {
                     "company_id": company["_id"],
                     "user_id": user["_id"],

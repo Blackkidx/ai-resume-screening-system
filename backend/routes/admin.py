@@ -167,6 +167,60 @@ async def get_all_users(
             detail=f"Failed to fetch users: {str(e)}"
         )
 
+# =============================================================================
+# AVAILABLE HR USERS - สำหรับ Company Assignment
+# =============================================================================
+@router.get("/users/available-hr", response_model=List[UserListResponse])
+async def get_available_hr_users(
+    admin_data: dict = Depends(require_admin)
+):
+    """ดึงรายการ HR ที่ยังไม่ได้ถูก assign ให้บริษัทใดเลย
+    
+    ใช้สำหรับแสดงใน Company Assignment Dialog
+    จะแสดงเฉพาะ HR ที่:
+    - user_type = "HR"
+    - is_active = True
+    - company_id เป็น null หรือไม่มีค่า (ยังไม่ได้ assign ให้บริษัทใด)
+    """
+    try:
+        db = get_database()
+        
+        # Query HR users ที่ยังไม่มี company_id
+        filter_query = {
+            "user_type": "HR",
+            "is_active": True,
+            "$or": [
+                {"company_id": None},
+                {"company_id": {"$exists": False}}
+            ]
+        }
+        
+        # ดึงข้อมูล HR users ที่ available
+        cursor = db.users.find(filter_query).sort("created_at", DESCENDING)
+        users = await cursor.to_list(length=None)
+        
+        # แปลงข้อมูล
+        result = []
+        for user in users:
+            result.append(UserListResponse(
+                id=str(user["_id"]),
+                username=user["username"],
+                email=user["email"],
+                full_name=user["full_name"],
+                user_type=user["user_type"],
+                is_active=user["is_active"],
+                created_at=user["created_at"],
+                last_login=user.get("last_login")
+            ))
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch available HR users: {str(e)}"
+        )
+
 @router.get("/users/{user_id}")
 async def get_user_by_id(
     user_id: str,

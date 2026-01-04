@@ -1,5 +1,5 @@
 💼 HR Test Account
-├── Username: hr_test
+├── Username: hr_test, hr_abc, hr_123
 ├── Password: hr12345
 ├── Role: HR
 └── Purpose: ทดสอบฟีเจอร์ HR

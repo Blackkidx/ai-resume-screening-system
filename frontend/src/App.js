@@ -12,6 +12,7 @@ import AdminDashboard from './components/Admin/AdminDashboard';
 import CompanyManagement from './components/Admin/CompanyManagement';
 import HRDashboard from './components/HR/HRDashboard';
 import Profile from './components/Profile/Profile';
+import ResumeUpload from './components/Student/ResumeUpload';
 import './styles/global.css';
 
 function App() {
@@ -26,20 +27,23 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/companies" element={<Companies />} />
-            
+
             {/* Job Routes - ต้อง login */}
             <Route path="/jobs/:jobId" element={<JobDetail />} />
-            
+
             {/* Admin Routes */}
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/companies" element={<CompanyManagement />} />
-            
+
             {/* HR Routes */}
             <Route path="/hr/dashboard" element={<HRDashboard />} />
-            
+
             {/* User Routes */}
             <Route path="/profile" element={<Profile />} />
-            
+
+            {/* Student Routes */}
+            <Route path="/student/resume" element={<ResumeUpload />} />
+
             {/* จะเพิ่ม route อื่นๆ ทีหลัง */}
           </Routes>
         </Router>

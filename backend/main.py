@@ -26,6 +26,7 @@ from routes.company import router as company_router
 from routes.student import router as student_router
 from routes.profile import router as profile_router
 from routes.resume import router as resume_router
+from routes.matching import router as matching_router
 
 from core.auth import get_current_user_data
 # ลอง import job router แบบ safe
@@ -87,6 +88,7 @@ app.include_router(company_router, prefix="/api")
 app.include_router(student_router, prefix="/api")
 app.include_router(profile_router, prefix="/api")
 app.include_router(resume_router, prefix="/api")
+app.include_router(matching_router, prefix="/api")
 
 # Include job router เฉพาะเมื่อใช้ได้
 if JOB_ROUTER_AVAILABLE and job_router is not None:

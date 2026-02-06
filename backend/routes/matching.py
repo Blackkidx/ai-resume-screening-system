@@ -106,25 +106,36 @@ async def calculate_match_score(
             )
         
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # 2. Get user's resume
+        # 2. Get user's resume (latest processed resume without error)
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━
-        resume = await db.resumes.find_one({
-            "user_id": user_id,
-            "status": "completed"
-        })
+        resume = await db.resumes.find_one(
+            {
+                "user_id": user_id,
+                "status": "processed",
+                "extracted_features.extraction_error": {"$exists": False}
+            },
+            sort=[("uploaded_at", -1)]  # Get the latest one
+        )
+        
+        # Fallback: try any processed resume if above query fails
+        if not resume:
+            resume = await db.resumes.find_one(
+                {"user_id": user_id, "status": "processed"},
+                sort=[("uploaded_at", -1)]
+            )
         
         if not resume:
             raise HTTPException(
                 status_code=404,
-                detail="Resume not found. Please upload and process your resume first."
+                detail="ไม่พบ Resume ที่ต้องการ กรุณาอัปโหลด Resume ก่อน"
             )
         
         # Get extracted features
         resume_features = resume.get("extracted_features", {})
-        if not resume_features or resume_features.get("extraction_error"):
+        if not resume_features:
             raise HTTPException(
                 status_code=400,
-                detail="Resume features not extracted. Please re-upload your resume."
+                detail="Resume ยังไม่ได้ถูกวิเคราะห์ กรุณาอัปโหลดใหม่"
             )
         
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -227,24 +238,34 @@ async def get_recommendations(
     
     try:
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # 1. Get user's resume
+        # 1. Get user's resume (latest without error)
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━
-        resume = await db.resumes.find_one({
-            "user_id": user_id,
-            "status": "completed"
-        })
+        resume = await db.resumes.find_one(
+            {
+                "user_id": user_id,
+                "status": "processed",
+                "extracted_features.extraction_error": {"$exists": False}
+            },
+            sort=[("uploaded_at", -1)]
+        )
+        
+        if not resume:
+            resume = await db.resumes.find_one(
+                {"user_id": user_id, "status": "processed"},
+                sort=[("uploaded_at", -1)]
+            )
         
         if not resume:
             raise HTTPException(
                 status_code=404,
-                detail="Resume not found. Please upload and process your resume first."
+                detail="ไม่พบ Resume กรุณาอัปโหลด Resume ก่อน"
             )
         
         resume_features = resume.get("extracted_features", {})
-        if not resume_features or resume_features.get("extraction_error"):
+        if not resume_features:
             raise HTTPException(
                 status_code=400,
-                detail="Resume features not extracted. Please re-upload your resume."
+                detail="Resume ยังไม่ถูกวิเคราะห์ กรุณาอัปโหลดใหม่"
             )
         
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -351,23 +372,33 @@ async def get_gap_analysis(
                 detail="Invalid job ID format"
             )
         
-        # Get user's resume
-        resume = await db.resumes.find_one({
-            "user_id": user_id,
-            "status": "completed"
-        })
+        # Get user's resume (latest without error)
+        resume = await db.resumes.find_one(
+            {
+                "user_id": user_id,
+                "status": "processed",
+                "extracted_features.extraction_error": {"$exists": False}
+            },
+            sort=[("uploaded_at", -1)]
+        )
+        
+        if not resume:
+            resume = await db.resumes.find_one(
+                {"user_id": user_id, "status": "processed"},
+                sort=[("uploaded_at", -1)]
+            )
         
         if not resume:
             raise HTTPException(
                 status_code=404,
-                detail="Resume not found. Please upload and process your resume first."
+                detail="ไม่พบ Resume กรุณาอัปโหลด Resume ก่อน"
             )
         
         resume_features = resume.get("extracted_features", {})
-        if not resume_features or resume_features.get("extraction_error"):
+        if not resume_features:
             raise HTTPException(
                 status_code=400,
-                detail="Resume features not extracted. Please re-upload your resume."
+                detail="Resume ยังไม่ถูกวิเคราะห์ กรุณาอัปโหลดใหม่"
             )
         
         # Get job

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # =============================================================================
 # 🚀 FASTAPI MAIN APPLICATION - AI Resume Screening System
 # =============================================================================
@@ -26,13 +27,14 @@ from routes.student import router as student_router
 from routes.profile import router as profile_router
 from routes.resume import router as resume_router
 
+from core.auth import get_current_user_data
 # ลอง import job router แบบ safe
 try:
     from routes.job import router as job_router
     JOB_ROUTER_AVAILABLE = True
-    print("✅ Job router imported successfully")
+    print("[OK] Job router imported successfully")
 except ImportError as e:
-    print(f"⚠️ Job router not available: {e}")
+    print(f"[WARNING] Job router not available: {e}")
     JOB_ROUTER_AVAILABLE = False
     job_router = None
 
@@ -89,9 +91,9 @@ app.include_router(resume_router, prefix="/api")
 # Include job router เฉพาะเมื่อใช้ได้
 if JOB_ROUTER_AVAILABLE and job_router is not None:
     app.include_router(job_router, prefix="/api")
-    print("✅ Job router included")
+    print("[OK] Job router included")
 else:
-    print("⚠️ Job router skipped")
+    print("[WARNING] Job router skipped")
 
 # =============================================================================
 # 🔄 APP LIFECYCLE EVENTS
@@ -103,7 +105,7 @@ async def startup_event():
     - เชื่อมต่อฐานข้อมูล
     - ตั้งค่าเริ่มต้น
     """
-    print("🚀 Starting AI Resume Screening System...")
+    print("[*] Starting AI Resume Screening System...")
     await connect_to_mongo()
     
     # ตรวจสอบ uploads folder
@@ -111,10 +113,10 @@ async def startup_event():
     for directory in uploads_dirs:
         if not os.path.exists(directory):
             os.makedirs(directory)
-            print(f"📁 Created directory: {directory}")
+            print(f"[*] Created directory: {directory}")
     
-    print("🎯 Application started successfully!")
-    print(f"📁 Static files available at: http://localhost:8000/uploads/")
+    print("[*] Application started successfully!")
+    print(f"[*] Static files available at: http://localhost:8000/uploads/")
 
 @app.on_event("shutdown") 
 async def shutdown_event():
@@ -329,6 +331,7 @@ async def manual_get_jobs(
 @app.get("/api/jobs/{job_id}")
 async def manual_get_job_by_id(
     job_id: str,
+    current_user: dict = Depends(get_current_user_data),
     db=Depends(get_database)
 ):
     """📋 ดึงรายละเอียดงานตาม ID (Manual)"""
@@ -489,16 +492,16 @@ if __name__ == "__main__":
     PORT = int(os.getenv("PORT", "8000"))
     DEBUG = os.getenv("ENVIRONMENT", "development") == "development"
     
-    print(f"🌟 Starting server on http://{HOST}:{PORT}")
-    print(f"📚 API Documentation: http://{HOST}:{PORT}/docs")
-    print(f"🔐 Auth endpoints: http://{HOST}:{PORT}/api/auth/*")
-    print(f"👤 Profile endpoints: http://{HOST}:{PORT}/api/profile/*")
-    print(f"📋 Job endpoints: http://{HOST}:{PORT}/api/jobs/*")
-    print(f"👑 Admin endpoints: http://{HOST}:{PORT}/api/admin/*")
-    print(f"🏢 Company endpoints: http://{HOST}:{PORT}/api/companies/*")
-    print(f"📁 Static files: http://{HOST}:{PORT}/uploads/*")
-    print(f"📄 Resume endpoints: http://{HOST}:{PORT}/api/resumes/*")
-    print(f"🔄 Environment: {os.getenv('ENVIRONMENT', 'development')}")
+    print(f"[*] Starting server on http://{HOST}:{PORT}")
+    print(f"[*] API Documentation: http://{HOST}:{PORT}/docs")
+    print(f"[*] Auth endpoints: http://{HOST}:{PORT}/api/auth/*")
+    print(f"[*] Profile endpoints: http://{HOST}:{PORT}/api/profile/*")
+    print(f"[*] Job endpoints: http://{HOST}:{PORT}/api/jobs/*")
+    print(f"[*] Admin endpoints: http://{HOST}:{PORT}/api/admin/*")
+    print(f"[*] Company endpoints: http://{HOST}:{PORT}/api/companies/*")
+    print(f"[*] Static files: http://{HOST}:{PORT}/uploads/*")
+    print(f"[*] Resume endpoints: http://{HOST}:{PORT}/api/resumes/*")
+    print(f"[*] Environment: {os.getenv('ENVIRONMENT', 'development')}")
    
     
     uvicorn.run(

@@ -33,11 +33,11 @@ class CompanyService {
 
       if (!response.ok) {
         let errorMessage = data.detail || 'Failed to create company';
-        
+
         if (errorMessage.includes('Company name already exists')) {
           errorMessage = 'ชื่อบริษัทนี้มีอยู่แล้ว กรุณาเลือกชื่ออื่น';
         }
-        
+
         throw new Error(errorMessage);
       }
 
@@ -58,7 +58,7 @@ class CompanyService {
   async getCompanies(params = {}) {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params.page) queryParams.append('page', params.page);
       if (params.limit) queryParams.append('limit', params.limit);
       if (params.search) queryParams.append('search', params.search);
@@ -129,11 +129,11 @@ class CompanyService {
 
       if (!response.ok) {
         let errorMessage = data.detail || 'Failed to update company';
-        
+
         if (errorMessage.includes('Company name already exists')) {
           errorMessage = 'ชื่อบริษัทนี้มีอยู่แล้ว กรุณาเลือกชื่ออื่น';
         }
-        
+
         throw new Error(errorMessage);
       }
 
@@ -297,7 +297,7 @@ class CompanyService {
   // ✅ ดึงรายการ HR Users ที่ยังไม่ได้ assign (สำหรับ dropdown)
   async getAvailableHRUsers() {
     try {
-      const response = await fetch(`${this.baseURL}/api/admin/users?user_type=HR&limit=100`, {
+      const response = await fetch(`${this.baseURL}/api/admin/users/available-hr`, {
         method: 'GET',
         headers: this.getAuthHeaders(),
       });
@@ -305,7 +305,7 @@ class CompanyService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Failed to fetch HR users');
+        throw new Error(data.detail || 'Failed to fetch available HR users');
       }
 
       return {

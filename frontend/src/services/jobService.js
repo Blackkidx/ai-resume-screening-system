@@ -1,0 +1,260 @@
+// frontend/src/services/jobService.js
+import { API_BASE_URL } from '../config';
+import authService from './authService';
+
+class JobService {
+  constructor() {
+    this.baseURL = API_BASE_URL;
+  }
+
+  // สร้าง headers สำหรับ API requests
+  getAuthHeaders() {
+    const token = authService.getToken();
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+  }
+
+  // =============================================================================
+  // PUBLIC ENDPOINTS - ไม่ต้อง login
+  // =============================================================================
+
+  // ✅ ดึงรายการงานทั้งหมด (Public)
+  async getJobs(params = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      if (params.skip !== undefined) queryParams.append('skip', params.skip);
+      if (params.limit) queryParams.append('limit', params.limit);
+      if (params.search) queryParams.append('search', params.search);
+
+      const response = await fetch(`${this.baseURL}/api/jobs?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch jobs');
+      }
+
+      const data = await response.json();
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // ✅ ดึงรายละเอียดงาน (ต้อง login)
+  async getJobById(jobId) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/${jobId}`, {
+        method: 'GET',
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('กรุณาเข้าสู่ระบบเพื่อดูรายละเอียด');
+        }
+        throw new Error('Failed to fetch job details');
+      }
+
+      const data = await response.json();
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // =============================================================================
+  // HR/ADMIN ENDPOINTS - ต้องมี role HR หรือ Admin
+  // =============================================================================
+
+  // ✅ สร้างงานใหม่ (HR/Admin only)
+  async createJob(jobData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(jobData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to create job');
+      }
+
+      return {
+        success: true,
+        data: data,
+        message: 'สร้างงานสำเร็จ'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // ✅ แก้ไขงาน (HR/Admin only)
+  async updateJob(jobId, updates) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/${jobId}`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(updates),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to update job');
+      }
+
+      return {
+        success: true,
+        data: data,
+        message: 'แก้ไขงานสำเร็จ'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // ✅ ลบงาน (เปลี่ยนเป็น inactive) (HR/Admin only)
+  async deleteJob(jobId) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/${jobId}`, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to delete job');
+      }
+
+      return {
+        success: true,
+        data: data,
+        message: 'ลบงานสำเร็จ'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // =============================================================================
+  // STUDENT ENDPOINTS
+  // =============================================================================
+
+  // ✅ ดึงงานที่แนะนำ (Student only)
+  async getRecommendedJobs() {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/recommended/for-me`, {
+        method: 'GET',
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('กรุณาเข้าสู่ระบบเพื่อดูงานแนะนำ');
+        }
+        throw new Error('Failed to fetch recommended jobs');
+      }
+
+      const data = await response.json();
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // ✅ ดูว่าตรงกับงานแค่ไหน (Student only)
+  async analyzeMatch(jobId) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/${jobId}/analyze`, {
+        method: 'POST',
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('กรุณาเข้าสู่ระบบเพื่อวิเคราะห์');
+        }
+        throw new Error('Failed to analyze match');
+      }
+
+      const data = await response.json();
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // ✅ สมัครงาน (Student only)
+  async applyJob(jobId, applicationData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/${jobId}/apply`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(applicationData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to apply for job');
+      }
+
+      return {
+        success: true,
+        data: data,
+        message: 'สมัครงานสำเร็จ'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+}
+
+export default new JobService();

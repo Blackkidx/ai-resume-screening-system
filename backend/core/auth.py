@@ -1,7 +1,8 @@
 # =============================================================================
-# 🔐 AUTHENTICATION UTILITIES
+# 📋 AUTHENTICATION UTILITIES
 # =============================================================================
 import os
+import hashlib  # ⭐ เพิ่มบรรทัดนี้สำหรับแก้ปัญหา bcrypt 72 bytes
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from fastapi import HTTPException, Depends, status
@@ -26,15 +27,53 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
 # =============================================================================
-# PASSWORD FUNCTIONS 🔑
+# PASSWORD FUNCTIONS 🔒 (แก้ไขแล้ว)
 # =============================================================================
 def hash_password(password: str) -> str:
-    """เข้ารหัสรหัสผ่าน"""
-    return pwd_context.hash(password)
+    """เข้ารหัสรหัสผ่านด้วย SHA256 + bcrypt
+    
+    ใช้ SHA256 ก่อนเพื่อแปลง password ทุกความยาวให้เป็น 64 hex characters
+    จากนั้นจึง hash ด้วย bcrypt (ป้องกันปัญหา 72 bytes limit)
+    
+    Args:
+        password (str): รหัสผ่านที่ต้องการเข้ารหัส
+        
+    Returns:
+        str: รหัสผ่านที่เข้ารหัสแล้วด้วย bcrypt
+    """
+    # Step 1: Hash password ด้วย SHA256 (ได้ 64 hex chars เสมอ)
+    password_sha = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    
+    # Step 2: Hash ด้วย bcrypt
+    return pwd_context.hash(password_sha)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """ตรวจสอบรหัสผ่าน"""
-    return pwd_context.verify(plain_password, hashed_password)
+    """ตรวจสอบรหัสผ่าน (รองรับทั้งแบบเก่าและแบบใหม่)
+    
+    Args:
+        plain_password (str): รหัสผ่านที่ user กรอก
+        hashed_password (str): รหัสผ่านที่ hash แล้วจาก database
+        
+    Returns:
+        bool: True ถ้ารหัสผ่านถูกต้อง, False ถ้าไม่ถูกต้อง
+    """
+    try:
+        # วิธีที่ 1: ลองแบบใหม่ (SHA256 + bcrypt) ก่อน
+        password_sha = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
+        if pwd_context.verify(password_sha, hashed_password):
+            return True
+    except Exception as e:
+        pass
+    
+    try:
+        # วิธีที่ 2: ลองแบบเก่า (bcrypt โดยตรง) สำหรับ backward compatibility
+        if pwd_context.verify(plain_password, hashed_password):
+            return True
+    except Exception as e:
+        pass
+    
+    # ถ้าทั้ง 2 วิธีไม่ได้ผล
+    return False
 
 # =============================================================================
 # JWT TOKEN FUNCTIONS 🎫

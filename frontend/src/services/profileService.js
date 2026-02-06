@@ -221,5 +221,6 @@ class ProfileService {
   }
 }
 
-// Export single instance
-export default new ProfileService();
+// ✅ แก้ไข: Export instance แบบถูกต้อง
+const profileServiceInstance = new ProfileService();
+export default profileServiceInstance;

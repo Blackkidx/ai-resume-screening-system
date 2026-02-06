@@ -1,7 +1,20 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import '../../styles/homepage.css';
 
 const Homepage = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handleGetStarted = () => {
+    if (user) {
+      navigate('/student/resume');
+    } else {
+      navigate('/login');
+    }
+  };
+
   return (
     <div className="homepage">
       {/* Hero Section */}
@@ -16,9 +29,9 @@ const Homepage = () => {
               ระบบคัดกรองเรซูเม่ด้วย AI ที่ช่วยให้การจับคู่งานฝึกงาน
               เป็นเรื่องง่ายและแม่นยำยิ่งขึ้น
             </p>
-            <button className="hero-cta">เริ่มต้นใช้งาน</button>
+            <button className="hero-cta" onClick={handleGetStarted}>เริ่มต้นใช้งาน</button>
           </div>
-          
+
           <div className="hero-visual">
             <div className="hero-illustration">
               <div className="people-group">
@@ -44,17 +57,17 @@ const Homepage = () => {
           <p className="features-subtitle">
             ระบบคัดกรองเรซูเม่ที่ใช้เทคโนโลยี AI เพื่อการจับคู่ที่แม่นยำ
           </p>
-          
+
           <div className="features-grid">
             <div className="feature-card">
               <span className="feature-icon">🤖</span>
               <h3>AI-Powered Screening</h3>
               <p>
-                ใช้เทคโนโลยี Machine Learning และ NLP 
+                ใช้เทคโนโลยี Machine Learning และ NLP
                 ในการวิเคราะห์และคัดกรองเรซูเม่อย่างแม่นยำ
               </p>
             </div>
-            
+
             <div className="feature-card">
               <span className="feature-icon">⚡</span>
               <h3>รวดเร็วและมีประสิทธิภาพ</h3>
@@ -63,12 +76,12 @@ const Homepage = () => {
                 พร้อมผลลัพธ์ที่แม่นยำ
               </p>
             </div>
-            
+
             <div className="feature-card">
               <span className="feature-icon">🎯</span>
               <h3>การจับคู่ที่แม่นยำ</h3>
               <p>
-                ประเมินทั้ง Hard Skills และ Soft Skills 
+                ประเมินทั้ง Hard Skills และ Soft Skills
                 เพื่อหาผู้สมัครที่เหมาะสมที่สุดกับตำแหน่งงาน
               </p>
             </div>

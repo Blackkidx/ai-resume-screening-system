@@ -1,4 +1,4 @@
-// frontend/src/App.js - Updated with Profile Route
+// frontend/src/App.js - Updated with Job Routes
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
@@ -7,13 +7,13 @@ import Homepage from './components/Homepage/Homepage';
 import Login from './components/Login/Login';
 import Register from './components/Register/Register';
 import Companies from './components/Companies/Companies';
+import JobDetail from './components/Jobs/JobDetail';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import CompanyManagement from './components/Admin/CompanyManagement';
 import HRDashboard from './components/HR/HRDashboard';
-import Profile from './components/Profile/Profile';  // 🆕 เพิ่มบรรทัดนี้
+import Profile from './components/Profile/Profile';
+import ResumeUpload from './components/Student/ResumeUpload';
 import './styles/global.css';
-
-
 
 function App() {
   return (
@@ -22,14 +22,28 @@ function App() {
         <Router>
           <Navbar />
           <Routes>
+            {/* Public Routes */}
             <Route path="/" element={<Homepage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/companies" element={<Companies />} />
+
+            {/* Job Routes - ต้อง login */}
+            <Route path="/jobs/:jobId" element={<JobDetail />} />
+
+            {/* Admin Routes */}
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/companies" element={<CompanyManagement />} />
+
+            {/* HR Routes */}
             <Route path="/hr/dashboard" element={<HRDashboard />} />
-            <Route path="/profile" element={<Profile />} />  {/* 🆕 เพิ่มบรรทัดนี้ */}
+
+            {/* User Routes */}
+            <Route path="/profile" element={<Profile />} />
+
+            {/* Student Routes */}
+            <Route path="/student/resume" element={<ResumeUpload />} />
+
             {/* จะเพิ่ม route อื่นๆ ทีหลัง */}
           </Routes>
         </Router>

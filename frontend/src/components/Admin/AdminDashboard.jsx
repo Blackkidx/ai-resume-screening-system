@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import adminService from '../../services/adminService';
-import companyService from '../../services/companyService';
+//import companyService from '../../services/companyService';
 import CompanyManagement from './CompanyManagement';
 import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
 import '../../styles/admin.css';

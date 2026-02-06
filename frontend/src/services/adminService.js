@@ -267,7 +267,7 @@ class AdminService {
     }
   }
 
-  // ⭐ ดึงข้อมูลสถิติเพิ่มเติม
+  // ✅ ดึงข้อมูลสถิติเพิ่มเติม (placeholder)
   async getAdvancedStats() {
     try {
       // สามารถเพิ่ม endpoint อื่นๆ ได้ตามต้องการ

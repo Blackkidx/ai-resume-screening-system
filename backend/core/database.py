@@ -34,10 +34,10 @@ async def connect_to_mongo():
         DATABASE_NAME = os.getenv("DATABASE_NAME", "ai_resume_screening")
         
         if not MONGODB_URL:
-            raise Exception("❌ MONGODB_URL not found in .env file")
+            raise Exception("[ERROR] MONGODB_URL not found in .env file")
         
-        print(f"🔄 Connecting to MongoDB Atlas...")
-        print(f"📁 Database name: {DATABASE_NAME}")
+        print(f"[*] Connecting to MongoDB Atlas...")
+        print(f"[DB] Database name: {DATABASE_NAME}")
         
         # สร้างการเชื่อมต่อแบบง่าย - ให้ connection string จัดการ SSL
         database_client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
@@ -47,12 +47,12 @@ async def connect_to_mongo():
         # ทดสอบการเชื่อมต่อด้วยคำสั่ง ping
         await database_client.admin.command('ping')
         
-        print("✅ Connected to MongoDB Atlas successfully!")
+        print("[OK] Connected to MongoDB Atlas successfully!")
         return True
         
     except Exception as e:
-        print(f"❌ Failed to connect to MongoDB: {e}")
-        print("🔍 กรุณาตรวจสอบ:")
+        print(f"[ERROR] Failed to connect to MongoDB: {e}")
+        print("[INFO] กรุณาตรวจสอบ:")
         print("   1. ไฟล์ .env มี MONGODB_URL ถูกต้องหรือไม่")
         print("   2. Internet connection")
         print("   3. MongoDB Atlas cluster เปิดอยู่หรือไม่")
@@ -68,7 +68,7 @@ async def close_mongo_connection():
     
     if database_client is not None:
         database_client.close()
-        print("🔌 Disconnected from MongoDB Atlas")
+        print("[*] Disconnected from MongoDB Atlas")
 
 async def test_connection():
     """
@@ -136,12 +136,12 @@ async def test_insert_data():
         }
         
         result = await db.test_collection.insert_one(test_data)
-        print(f"✅ Test data inserted with ID: {result.inserted_id}")
+        print(f"[OK] Test data inserted with ID: {result.inserted_id}")
         
         return {"success": True, "inserted_id": str(result.inserted_id)}
         
     except Exception as e:
-        print(f"❌ Failed to insert test data: {e}")
+        print(f"[ERROR] Failed to insert test data: {e}")
         return {"success": False, "error": str(e)}
 
 async def test_read_data():
@@ -154,11 +154,11 @@ async def test_read_data():
         # อ่านข้อมูลจากตาราง test_collection
         documents = await db.test_collection.find().to_list(length=10)
         
-        print(f"✅ Found {len(documents)} test documents")
+        print(f"[OK] Found {len(documents)} test documents")
         return {"success": True, "count": len(documents), "data": documents}
         
     except Exception as e:
-        print(f"❌ Failed to read test data: {e}")
+        print(f"[ERROR] Failed to read test data: {e}")
         return {"success": False, "error": str(e)}
 
 # =============================================================================

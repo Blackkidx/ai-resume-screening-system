@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }) => {
             const result = await authService.getMe();
             if (result.success) {
               setUser(result.data);
-              
+
               // 🎯 ดึงข้อมูลโปรไฟล์ล่าสุดจาก API
               try {
                 const profileData = await profileService.getProfile();
@@ -86,10 +86,10 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       const result = await authService.login(credentials);
-      
+
       if (result.success) {
         setUser(result.data.user_info);
-        
+
         // 🎯 ดึงข้อมูลโปรไฟล์ล่าสุดหลัง login
         try {
           const profileData = await profileService.getProfile();
@@ -107,20 +107,20 @@ export const AuthProvider = ({ children }) => {
           console.warn('Failed to fetch profile after login:', profileError);
           // ใช้ข้อมูลจาก login response
         }
-        
+
         return {
           success: true,
           message: 'เข้าสู่ระบบเรียบร้อยแล้ว',
           data: result.data
         };
       }
-      
+
       // ส่งคืน error ในรูปแบบเดิม
       return {
         success: false,
         error: result.error || result.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ'
       };
-      
+
     } catch (error) {
       console.error('Login error:', error);
       return {
@@ -134,7 +134,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const result = await authService.register(userData);
-      
+
       if (result.success) {
         return {
           success: true,
@@ -142,12 +142,12 @@ export const AuthProvider = ({ children }) => {
           data: result.data
         };
       }
-      
+
       return {
         success: false,
         error: result.error || result.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก'
       };
-      
+
     } catch (error) {
       console.error('Register error:', error);
       return {
@@ -190,7 +190,7 @@ export const AuthProvider = ({ children }) => {
   // 🎯 ฟังก์ชัน sync ข้อมูลโปรไฟล์ล่าสุด
   const syncProfile = async () => {
     if (!isAuthenticated()) return;
-    
+
     try {
       const profileData = await profileService.getProfile();
       const updatedUser = {
@@ -224,7 +224,7 @@ export const AuthProvider = ({ children }) => {
   // 🎯 ฟังก์ชันช่วยเหลือสำหรับโปรไฟล์
   const getInitials = (fullName) => {
     if (!fullName) return 'U';
-    
+
     const names = fullName.split(' ');
     if (names.length >= 2) {
       return (names[0][0] + names[1][0]).toUpperCase();
@@ -234,7 +234,7 @@ export const AuthProvider = ({ children }) => {
 
   const getDisplayName = (fullName) => {
     if (!fullName) return 'User';
-    
+
     const names = fullName.split(' ');
     if (names.length >= 2) {
       return names[0]; // แสดงแค่ชื่อ
@@ -244,7 +244,7 @@ export const AuthProvider = ({ children }) => {
 
   const getProfileImageUrl = () => {
     const imageUrl = user?.profile_image;
-    
+
     if (imageUrl) {
       // ถ้าเป็น URL เต็ม ใช้เลย
       if (imageUrl.startsWith('http')) {
@@ -253,8 +253,17 @@ export const AuthProvider = ({ children }) => {
       // ถ้าเป็น path สัมพัทธ์ เพิ่ม base URL
       return `http://localhost:8000${imageUrl}`;
     }
-    
+
     return null;
+  };
+
+  // Get authentication headers for API calls
+  const getAuthHeaders = () => {
+    const token = authService.getToken();
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    };
   };
 
   // Context value
@@ -262,23 +271,24 @@ export const AuthProvider = ({ children }) => {
     // Core auth data
     user,
     loading,
-    
+
     // Auth methods - รักษา format เดิม
     isAuthenticated,
     hasRole,
     login,
     register,
     logout,
-    
+
     // Profile methods
     updateUser,
     syncProfile,
-    
+
     // Helper methods
     getInitials,
     getDisplayName,
     getProfileImageUrl,
-    
+    getAuthHeaders,
+
     // Computed properties
     hasProfileImage: !!getProfileImageUrl(),
     fullName: user?.full_name || '',

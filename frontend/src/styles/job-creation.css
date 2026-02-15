@@ -249,6 +249,14 @@
   cursor: pointer;
 }
 
+.job-creation .job-form-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: #6B7280;
+  font-style: italic;
+}
+
 /* =============================================================================
    INPUT WITH BUTTON
    ============================================================================= */
@@ -466,55 +474,55 @@
   .job-creation-container {
     padding: 0 16px;
   }
-  
+
   .job-creation-title {
     font-size: 2rem;
   }
-  
+
   .job-creation .btn-back {
     position: static;
     transform: none;
     margin-bottom: 20px;
     align-self: flex-start;
   }
-  
+
   .job-creation-header {
     text-align: left;
   }
-  
+
   .job-creation .form-section {
     padding: 24px 20px;
   }
-  
+
   .job-creation .job-form-row {
     grid-template-columns: 1fr;
     gap: 16px;
   }
-  
+
   .job-creation .job-input-with-button {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .job-creation .job-btn-add {
     align-self: flex-start;
   }
-  
+
   .job-creation .job-form-actions {
     flex-direction: column-reverse;
     gap: 12px;
     padding: 20px;
   }
-  
+
   .job-creation .job-btn {
     width: 100%;
     justify-content: center;
   }
-  
+
   .job-creation .job-tag-list {
     padding: 12px;
   }
-  
+
   .job-creation .section-title {
     font-size: 1.3rem;
   }
@@ -524,32 +532,52 @@
   .job-creation-title {
     font-size: 1.75rem;
   }
-  
+
   .job-creation-subtitle {
     font-size: 1rem;
   }
-  
+
   .job-creation .form-section {
     padding: 20px 16px;
   }
-  
+
   .job-creation .section-title {
     font-size: 1.2rem;
   }
-  
+
   .job-creation .job-form-input,
   .job-creation .job-form-select,
   .job-creation .job-form-textarea {
     padding: 10px 12px;
   }
-  
+
   .job-creation .job-btn {
     padding: 12px 20px;
     font-size: 0.9rem;
   }
-  
+
   .job-creation .job-tag {
     font-size: 0.8rem;
     padding: 4px 8px;
   }
+}
+
+/* =============================================================================
+   FORM VALIDATION HINTS
+   ============================================================================= */
+
+.job-creation .job-form-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.job-creation .text-warning {
+  color: #D97706;
+}
+
+.job-creation .text-success {
+  color: #059669;
 }

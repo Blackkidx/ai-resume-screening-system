@@ -16,14 +16,36 @@ router = APIRouter(prefix="/jobs", tags=["Jobs"])
 # =============================================================================
 
 class JobCreate(BaseModel):
+    # Basic Information
     title: str = Field(..., min_length=5, max_length=100)
     description: str = Field(..., min_length=20, max_length=2000)
+    department: str = Field(..., min_length=2, max_length=100)
+    job_type: str = Field(default="Internship")
+    work_mode: str = Field(default="Onsite")
+    location: str = Field(..., min_length=2, max_length=200)
+    
+    # Allowance (เบี้ยเลี้ยง)
+    allowance_amount: Optional[int] = Field(None, ge=0)
+    allowance_type: Optional[str] = Field(None)  # "daily" or "monthly"
+    
+    # Job Requirements
+    requirements: List[str] = Field(default=[])
     skills_required: List[str] = Field(..., min_items=1, max_items=20)
+    majors: List[str] = Field(default=["ทุกสาขา"])
     min_gpa: Optional[float] = Field(None, ge=0.0, le=4.0)
     student_levels: List[str] = Field(default=["ปี 3", "ปี 4"])
-    majors: List[str] = Field(default=["ทุกสาขา"])
+    experience_required: Optional[int] = Field(default=0, ge=0)
+    
+    # Additional Information
+    positions_available: int = Field(default=1, ge=1, le=100)
+    application_deadline: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    
+    # Legacy fields (for backward compatibility)
     compensation_amount: Optional[int] = Field(None, ge=0)
-    location: Optional[str] = None
+    salary_min: Optional[int] = Field(None, ge=0)
+    salary_max: Optional[int] = Field(None, ge=0)
     duration_months: int = Field(default=4, ge=1, le=12)
 
 class JobResponse(BaseModel):
@@ -33,16 +55,42 @@ class JobResponse(BaseModel):
     description: str
     company_id: str
     company_name: str
+    
+    # Basic Information
+    department: Optional[str] = None
+    job_type: Optional[str] = None
+    work_mode: Optional[str] = None
+    location: Optional[str] = None
+    
+    # Allowance (เบี้ยเลี้ยง)
+    allowance_amount: Optional[int] = None
+    allowance_type: Optional[str] = None
+    
+    # Job Requirements
+    requirements: List[str] = []
     skills_required: List[str]
+    majors: List[str]
     min_gpa: Optional[float]
     student_levels: List[str]
-    majors: List[str]
-    compensation_amount: Optional[int]
-    location: Optional[str]
-    duration_months: int
+    experience_required: Optional[int] = None
+    
+    # Additional Information
+    positions_available: Optional[int] = 1
+    application_deadline: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    
+    # Legacy fields
+    compensation_amount: Optional[int] = None
+    salary_min: Optional[int] = None
+    salary_max: Optional[int] = None
+    duration_months: Optional[int] = None
+    
+    # Metadata
     is_active: bool
     created_at: str
     applications_count: int = 0
+    
     # AI fields (จะมีค่าถ้า Student request)
     ai_match_score: Optional[float] = None
     recommendation_reason: Optional[str] = None
@@ -220,9 +268,24 @@ async def create_job(
 ):
     """สร้างงานฝึกงาน (HR/Admin)"""
     
+    # Debug: แสดงข้อมูล current_user แบบละเอียด
+    print("=" * 80)
+    print("[DEBUG] CREATE JOB - Full current_user payload:")
+    print(f"  Type: {type(current_user)}")
+    print(f"  Content: {current_user}")
+    print(f"  Keys: {current_user.keys() if isinstance(current_user, dict) else 'N/A'}")
+    print(f"  user_type value: '{current_user.get('user_type')}'")
+    print(f"  user_type type: {type(current_user.get('user_type'))}")
+    print("=" * 80)
+    
     # ตรวจสอบ role
-    if current_user.get("user_type") not in ["HR", "Admin"]:
-        raise HTTPException(status_code=403, detail="HR or Admin only")
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
+        print(f"[ERROR] Access denied! user_type='{user_type}' not in ['HR', 'Admin']")
+        raise HTTPException(
+            status_code=403, 
+            detail=f"HR or Admin only. Your user_type: {user_type}"
+        )
     
     # ดึงข้อมูล company (ถ้าเป็น HR)
     company_name = "System"
@@ -296,27 +359,51 @@ async def get_job_detail(
 @router.put("/{job_id}")
 async def update_job(
     job_id: str,
-    updates: dict,
+    job_update: JobCreate,
     current_user: dict = Depends(get_current_user_data),
     db = Depends(get_database)
 ):
     """แก้ไขงาน (HR/Admin)"""
     
-    if current_user.get("user_type") not in ["HR", "Admin"]:
+    # Check user type
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
         raise HTTPException(status_code=403, detail="HR or Admin only")
     
+    # Validate job_id
     if not ObjectId.is_valid(job_id):
         raise HTTPException(status_code=400, detail="Invalid job ID")
     
+    # Get existing job
+    existing_job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+    if not existing_job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Check ownership (HR can only edit their company's jobs)
+    if user_type == "HR":
+        company_id = current_user.get("company_id")
+        if not company_id:
+            raise HTTPException(status_code=403, detail="HR user must have company_id")
+        
+        if str(existing_job.get("company_id")) != str(company_id):
+            raise HTTPException(status_code=403, detail="You can only edit jobs from your company")
+    
+    # Prepare update data
+    update_data = job_update.dict(exclude_unset=True)
+    update_data["updated_at"] = datetime.utcnow().isoformat()
+    
+    # Update job
     result = await db.jobs.update_one(
         {"_id": ObjectId(job_id)},
-        {"$set": updates}
+        {"$set": update_data}
     )
     
     if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Job not found")
+        # Job exists but no changes were made
+        return {"message": "No changes made", "job_id": job_id}
     
-    return {"message": "Job updated successfully"}
+    return {"message": "Job updated successfully", "job_id": job_id}
+
 
 @router.delete("/{job_id}")
 async def delete_job(

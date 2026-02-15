@@ -4,21 +4,37 @@ import { API_BASE_URL } from '../config';
 class AuthService {
   constructor() {
     this.baseURL = API_BASE_URL;
+
+    // 🔄 Migration: ย้าย token จาก 'token' ไปเป็น 'auth_token'
+    this.migrateTokenKey();
+  }
+
+  // Migration helper
+  migrateTokenKey() {
+    const oldToken = localStorage.getItem('token');
+    const newToken = localStorage.getItem('auth_token');
+
+    // ถ้ามี token เก่าแต่ไม่มี token ใหม่ ให้ย้าย
+    if (oldToken && !newToken) {
+      console.log('[AuthService] Migrating token from "token" to "auth_token"');
+      localStorage.setItem('auth_token', oldToken);
+      localStorage.removeItem('token');
+    }
   }
 
   // ดึง token จาก localStorage
   getToken() {
-    return localStorage.getItem('token');
+    return localStorage.getItem('auth_token');
   }
 
   // บันทึก token ลง localStorage
   setToken(token) {
-    localStorage.setItem('token', token);
+    localStorage.setItem('auth_token', token);
   }
 
   // ลบ token จาก localStorage
   removeToken() {
-    localStorage.removeItem('token');
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
   }
 

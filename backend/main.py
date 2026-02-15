@@ -26,6 +26,7 @@ from routes.company import router as company_router
 from routes.student import router as student_router
 from routes.profile import router as profile_router
 from routes.resume import router as resume_router
+from routes.matching import router as matching_router
 
 from core.auth import get_current_user_data
 # ลอง import job router แบบ safe
@@ -87,6 +88,7 @@ app.include_router(company_router, prefix="/api")
 app.include_router(student_router, prefix="/api")
 app.include_router(profile_router, prefix="/api")
 app.include_router(resume_router, prefix="/api")
+app.include_router(matching_router, prefix="/api")
 
 # Include job router เฉพาะเมื่อใช้ได้
 if JOB_ROUTER_AVAILABLE and job_router is not None:
@@ -424,38 +426,83 @@ async def manual_get_job_by_id(
 @app.post("/api/jobs")
 async def manual_create_job(
     job_data: dict,
+    current_user: dict = Depends(get_current_user_data),
     db=Depends(get_database)
 ):
-    """➕ สร้างงานใหม่ (Manual - แบบง่าย)"""
+    """➕ สร้างงานใหม่ (Manual - with authentication)"""
     try:
         from datetime import datetime
+        from bson import ObjectId
+        
+        # Debug: แสดงข้อมูล current_user แบบละเอียด
+        print("=" * 80)
+        print("[DEBUG] MANUAL CREATE JOB - Full current_user payload:")
+        print(f"  Type: {type(current_user)}")
+        print(f"  Content: {current_user}")
+        print(f"  Keys: {current_user.keys() if isinstance(current_user, dict) else 'N/A'}")
+        print(f"  user_type value: '{current_user.get('user_type')}'")
+        print(f"  user_type type: {type(current_user.get('user_type'))}")
+        print("=" * 80)
+        
+        # ตรวจสอบ role - ต้องเป็น HR หรือ Admin
+        user_type = current_user.get("user_type")
+        if user_type not in ["HR", "Admin"]:
+            print(f"[ERROR] Access denied! user_type='{user_type}' not in ['HR', 'Admin']")
+            raise HTTPException(
+                status_code=403, 
+                detail=f"HR or Admin only. Your user_type: {user_type}"
+            )
+        
+        # ดึงข้อมูล company (ถ้าเป็น HR)
+        company_name = "System"
+        company_id = "system"
+        
+        if user_type == "HR":
+            user = await db.users.find_one({"_id": ObjectId(current_user["sub"])})
+            if user and user.get("company_id"):
+                company = await db.companies.find_one({"_id": user["company_id"]})
+                if company:
+                    company_name = company["name"]
+                    company_id = str(company["_id"])
         
         # เพิ่มข้อมูลเริ่มต้น
         job_data.update({
-            "company_id": "default_company",
-            "company_name": "Test Company",
-            "created_by": "system",
+            "company_id": company_id,
+            "company_name": company_name,
+            "created_by": current_user["sub"],
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
-            "is_active": True
+            "is_active": True,
+            "applications_count": 0
         })
         
         # บันทึกลงฐานข้อมูล
         result = await db.jobs.insert_one(job_data)
         
-        return {
-            "message": "Job created successfully",
-            "job_id": str(result.inserted_id),
-            "status": "success",
-            "source": "main.py"
-        }
+        # ดึงข้อมูลที่สร้างแล้ว
+        created_job = await db.jobs.find_one({"_id": result.inserted_id})
+        created_job["id"] = str(created_job["_id"])
+        created_job.pop("_id", None)
         
+        # แปลง datetime เป็น string
+        if "created_at" in created_job and hasattr(created_job["created_at"], "isoformat"):
+            created_job["created_at"] = created_job["created_at"].isoformat()
+        if "updated_at" in created_job and hasattr(created_job["updated_at"], "isoformat"):
+            created_job["updated_at"] = created_job["updated_at"].isoformat()
+        
+        print(f"[SUCCESS] Job created successfully! ID: {created_job['id']}")
+        
+        return created_job
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        return {
-            "error": str(e),
-            "message": "Error creating job but API is working",
-            "status": "error"
-        }
+        print(f"[ERROR] Failed to create job: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error creating job: {str(e)}"
+        )
+
 
 # =============================================================================
 # 🔧 ERROR HANDLERS

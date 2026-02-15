@@ -57,28 +57,52 @@ const JobManagement = () => {
         params.append('is_active', filterStatus === 'active' ? 'true' : 'false');
       }
 
+      console.log('Fetching jobs with params:', params.toString());
+
       const response = await fetch(`http://localhost:8000/api/jobs?${params}`, {
         headers: getAuthHeaders(),
       });
 
+      console.log('Response status:', response.status);
+
       if (response.ok) {
         const result = await response.json();
-        
-        if (result.jobs) {
-          setJobs(result.jobs);
-          setTotalJobs(result.total_count);
-        } else {
-          // Handle fallback response format
-          setJobs(result);
-          setTotalJobs(result.length);
+        console.log('Response data:', result);
+
+        // Handle different response formats
+        let jobsData = [];
+        let totalCount = 0;
+
+        if (Array.isArray(result)) {
+          // If result is directly an array
+          jobsData = result;
+          totalCount = result.length;
+        } else if (result.jobs && Array.isArray(result.jobs)) {
+          // If result has jobs property
+          jobsData = result.jobs;
+          totalCount = result.total_count || result.jobs.length;
+        } else if (typeof result === 'object' && result !== null) {
+          // If result is an object but not the expected format
+          console.warn('Unexpected response format:', result);
+          jobsData = [];
+          totalCount = 0;
         }
+
+        console.log('Processed jobs data:', jobsData);
+        setJobs(jobsData);
+        setTotalJobs(totalCount);
       } else {
         const errorData = await response.json();
+        console.error('Error response:', errorData);
         setError(errorData.detail || 'เกิดข้อผิดพลาดในการโหลดข้อมูลงาน');
+        setJobs([]);
+        setTotalJobs(0);
       }
     } catch (error) {
       console.error('Error loading jobs:', error);
-      setError('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
+      setError('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์: ' + error.message);
+      setJobs([]);
+      setTotalJobs(0);
     } finally {
       setLoading(false);
     }
@@ -125,8 +149,8 @@ const JobManagement = () => {
       });
 
       if (response.ok) {
-        setJobs(jobs.map(job => 
-          job.id === jobId 
+        setJobs(jobs.map(job =>
+          job.id === jobId
             ? { ...job, is_active: !currentStatus }
             : job
         ));
@@ -169,11 +193,11 @@ const JobManagement = () => {
   return (
     <div className="job-management">
       <div className="job-management-container">
-        
+
         {/* Header */}
         <div className="job-management-header">
           <div className="header-left">
-            <button 
+            <button
               className="btn-back"
               onClick={() => navigate('/hr/dashboard')}
             >
@@ -184,7 +208,7 @@ const JobManagement = () => {
               <p className="page-subtitle">จัดการตำแหน่งฝึกงานทั้งหมดของบริษัท</p>
             </div>
           </div>
-          <button 
+          <button
             className="btn btn-primary"
             onClick={() => navigate('/hr/jobs/create')}
           >
@@ -265,7 +289,7 @@ const JobManagement = () => {
                         <div className="no-data-content">
                           <span className="no-data-icon">📋</span>
                           <p>ยังไม่มีตำแหน่งงานที่สร้างไว้</p>
-                          <button 
+                          <button
                             className="btn btn-primary btn-small"
                             onClick={() => navigate('/hr/jobs/create')}
                           >
@@ -355,7 +379,7 @@ const JobManagement = () => {
                 >
                   ← ก่อนหน้า
                 </button>
-                
+
                 <div className="pagination-info">
                   <span>หน้า {currentPage} จาก {totalPages}</span>
                   <span className="pagination-total">({totalJobs} รายการ)</span>

@@ -11,6 +11,9 @@ import JobDetail from './components/Jobs/JobDetail';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import CompanyManagement from './components/Admin/CompanyManagement';
 import HRDashboard from './components/HR/HRDashboard';
+import JobCreation from './components/HR/JobCreation';
+import JobEdit from './components/HR/JobEdit';
+import JobManagement from './components/HR/JobManagement';
 import Profile from './components/Profile/Profile';
 import ResumeUpload from './components/Student/ResumeUpload';
 import './styles/global.css';
@@ -37,6 +40,9 @@ function App() {
 
             {/* HR Routes */}
             <Route path="/hr/dashboard" element={<HRDashboard />} />
+            <Route path="/hr/jobs/create" element={<JobCreation />} />
+            <Route path="/hr/jobs/:jobId/edit" element={<JobEdit />} />
+            <Route path="/hr/jobs" element={<JobManagement />} />
 
             {/* User Routes */}
             <Route path="/profile" element={<Profile />} />

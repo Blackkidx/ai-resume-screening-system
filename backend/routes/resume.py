@@ -21,7 +21,14 @@ import io
 # Local imports
 from core.database import get_database
 from core.auth import get_current_user_id
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Dict, Any
+
+# AI Services
+from services.llm_service import LLMService
+
+# Initialize LLM Service (singleton)
+llm_service = LLMService()
 
 # สร้าง router สำหรับ Resume API
 router = APIRouter(prefix="/resumes", tags=["Resume Management"])
@@ -54,6 +61,7 @@ class ResumeUploadResponse(BaseModel):
     status: str
     uploaded_at: datetime
     message: str
+    extracted_features: Optional[Dict[str, Any]] = None  # AI extracted features
 
 class ResumeStatusResponse(BaseModel):
     """ข้อมูลสถานะการประมวลผล"""
@@ -209,22 +217,46 @@ async def upload_resume(
         resume_id = str(result.inserted_id)
         
         # ขั้นตอนที่ 6: ประมวลผล PDF (ดึงข้อความ)
+        extracted_features = None  # เก็บ AI features
         try:
             extracted_text = extract_text_from_pdf(file_content)
             
             if extracted_text and len(extracted_text.strip()) > 0:
-                # ประมวลผลสำเร็จ
+                logger.info(f"Resume {resume_id}: ดึงข้อความสำเร็จ ({len(extracted_text)} chars)")
+                
+                # ขั้นตอนที่ 7: 🧠 วิเคราะห์ด้วย AI (Groq)
+                try:
+                    if llm_service.is_ready():
+                        logger.info(f"Resume {resume_id}: กำลังวิเคราะห์ด้วย AI...")
+                        extracted_features = llm_service.extract_features(extracted_text)
+                        
+                        # ลบ error field ถ้าไม่มี error
+                        if extracted_features and "extraction_error" in extracted_features:
+                            if not extracted_features["extraction_error"]:
+                                del extracted_features["extraction_error"]
+                        
+                        logger.info(f"Resume {resume_id}: AI วิเคราะห์สำเร็จ!")
+                    else:
+                        logger.warning(f"Resume {resume_id}: LLM Service ไม่พร้อม - ข้าม AI analysis")
+                        extracted_features = {"error": "LLM Service not ready"}
+                        
+                except Exception as ai_error:
+                    logger.error(f"Resume {resume_id}: AI Error - {str(ai_error)}")
+                    extracted_features = {"error": str(ai_error)}
+                
+                # ประมวลผลสำเร็จ - บันทึกลง DB
                 await db.resumes.update_one(
                     {"_id": ObjectId(resume_id)},
                     {
                         "$set": {
                             "extracted_text": extracted_text,
+                            "extracted_features": extracted_features,  # 🧠 AI Features
                             "processed_at": datetime.utcnow(),
                             "status": "processed"  # processed = เสร็จแล้ว
                         }
                     }
                 )
-                logger.info(f"Resume {resume_id} ประมวลผลสำเร็จ")
+                logger.info(f"Resume {resume_id} ประมวลผลและวิเคราะห์สำเร็จ")
                 status_message = "processed"
             else:
                 # ดึงข้อความไม่ได้
@@ -263,7 +295,8 @@ async def upload_resume(
             file_size=file_size,
             status=status_message,
             uploaded_at=datetime.utcnow(),
-            message="อัปโหลดและประมวลผล Resume สำเร็จ"
+            message="อัปโหลดและประมวลผล Resume สำเร็จ" if status_message == "processed" else "อัปโหลดสำเร็จ แต่ประมวลผลมีปัญหา",
+            extracted_features=extracted_features  # 🧠 ส่ง AI features กลับ
         )
         
     except HTTPException:

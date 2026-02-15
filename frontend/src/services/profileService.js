@@ -8,7 +8,7 @@ class ProfileService {
 
   // Helper method สำหรับ headers
   getAuthHeaders() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     return {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
@@ -17,7 +17,7 @@ class ProfileService {
 
   // Helper method สำหรับ file upload headers
   getFileUploadHeaders() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     return {
       'Authorization': `Bearer ${token}`
       // ไม่ใส่ Content-Type สำหรับ FormData
@@ -40,7 +40,7 @@ class ProfileService {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
-      
+
       return await this.handleResponse(response);
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -56,7 +56,7 @@ class ProfileService {
         headers: this.getAuthHeaders(),
         body: JSON.stringify(profileData)
       });
-      
+
       return await this.handleResponse(response);
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -78,7 +78,7 @@ class ProfileService {
         headers: this.getFileUploadHeaders(),
         body: formData
       });
-      
+
       return await this.handleResponse(response);
     } catch (error) {
       console.error('Error uploading profile image:', error);
@@ -93,7 +93,7 @@ class ProfileService {
         method: 'DELETE',
         headers: this.getAuthHeaders()
       });
-      
+
       return await this.handleResponse(response);
     } catch (error) {
       console.error('Error deleting profile image:', error);
@@ -109,7 +109,7 @@ class ProfileService {
         headers: this.getAuthHeaders(),
         body: JSON.stringify(passwordData)
       });
-      
+
       return await this.handleResponse(response);
     } catch (error) {
       console.error('Error changing password:', error);

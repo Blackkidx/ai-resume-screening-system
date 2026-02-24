@@ -171,6 +171,11 @@ const StudentDashboard = () => {
             if (result.success) {
                 showToast('สมัครงานสำเร็จ! 🎉');
                 loadDashboard();
+            } else if (result.error?.includes('PHONE_REQUIRED')) {
+                const goToProfile = window.confirm(
+                    '⚠️ กรุณาเพิ่มเบอร์โทรศัพท์ก่อนสมัครงาน\n\nกดตกลงเพื่อไปหน้าโปรไฟล์'
+                );
+                if (goToProfile) navigate('/profile');
             } else {
                 showToast(result.error || 'เกิดข้อผิดพลาด', 'error');
             }

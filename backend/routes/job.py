@@ -778,6 +778,13 @@ async def apply_job(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # ตรวจสอบเบอร์โทรศัพท์
+    if not user.get("phone"):
+        raise HTTPException(
+            status_code=400,
+            detail="PHONE_REQUIRED"
+        )
+
     # คำนวณ AI score ด้วย MatchingService
     resume_features = await get_resume_features(user_id, db) or {}
     job_requirements = convert_job_to_requirements(job)

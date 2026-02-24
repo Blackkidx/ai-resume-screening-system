@@ -9,7 +9,7 @@ const JobCreation = () => {
   const { user, isAuthenticated } = useAuth();
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token');
     return token ? {
       'Authorization': `Bearer ${token}`
     } : {};
@@ -66,14 +66,21 @@ const JobCreation = () => {
   ];
 
   const DEPARTMENTS = [
-    'Information Technology',
-    'Marketing',
-    'Sales',
-    'Human Resources',
-    'Finance',
-    'Engineering',
-    'Design',
-    'Operations'
+    'Front-End Developer',
+    'Back-End Developer',
+    'Full-Stack Developer',
+    'Mobile Developer',
+    'Game Developer',
+    'Network Engineer',
+    'System Administrator',
+    'Cloud Engineer',
+    'Cybersecurity',
+    'IT Support',
+    'Data Analyst',
+    'AI / Machine Learning Engineer',
+    'Project Manager',
+    'Software Tester',
+    'Business Analyst'
   ];
 
   // Check permissions
@@ -90,6 +97,7 @@ const JobCreation = () => {
     }
 
     setDepartments(DEPARTMENTS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user, navigate]);
 
   // Handle input changes
@@ -243,15 +251,6 @@ const JobCreation = () => {
       // Remove year_level from jobData (backend doesn't use it)
       delete jobData.year_level;
 
-      // Debug: Check token
-      const token = localStorage.getItem('auth_token');
-      console.log('=== DEBUG: Job Creation Request ===');
-      console.log('Token exists:', !!token);
-      console.log('Token value:', token ? token.substring(0, 20) + '...' : 'NULL');
-      console.log('Auth headers:', getAuthHeaders());
-      console.log('Request URL:', 'http://localhost:8000/api/jobs');
-      console.log('Job data:', jobData);
-
       const response = await fetch('http://localhost:8000/api/jobs', {
         method: 'POST',
         headers: {
@@ -262,9 +261,6 @@ const JobCreation = () => {
       });
 
       const result = await response.json();
-
-      console.log('Response status:', response.status);
-      console.log('Response data:', result);
 
       if (response.ok) {
         setSuccess('สร้างตำแหน่งงานเรียบร้อยแล้ว!');
@@ -298,7 +294,6 @@ const JobCreation = () => {
         }, 2000);
       } else {
         // Handle error response
-        console.error('Error response:', result);
 
         // Extract error message
         let errorMessage = 'เกิดข้อผิดพลาดในการสร้างตำแหน่งงาน';

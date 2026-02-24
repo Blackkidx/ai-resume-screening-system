@@ -336,6 +336,7 @@ async def get_recommendations(
                 "job_title": job.get("title", "Unknown"),
                 "company_name": job.get("company_name", "Unknown"),
                 "department": job.get("department", ""),
+                "skills_required": job.get("skills_required", []),  # เพิ่ม skills
                 "overall_score": result["overall_score"],
                 "zone": result["zone"],
                 "recommendation": result["recommendation"],

@@ -8,7 +8,7 @@ class ProfileService {
 
   // Helper method สำหรับ headers
   getAuthHeaders() {
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token');
     return {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
@@ -17,7 +17,7 @@ class ProfileService {
 
   // Helper method สำหรับ file upload headers
   getFileUploadHeaders() {
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token');
     return {
       'Authorization': `Bearer ${token}`
       // ไม่ใส่ Content-Type สำหรับ FormData

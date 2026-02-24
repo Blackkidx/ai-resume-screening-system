@@ -10,7 +10,7 @@ const JobDetail = () => {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  
+
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -23,15 +23,16 @@ const JobDetail = () => {
       return;
     }
     loadJobDetail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, isAuthenticated, navigate]);
 
   const loadJobDetail = async () => {
     try {
       setLoading(true);
       setError('');
-      
+
       const result = await jobService.getJobById(jobId);
-      
+
       if (result.success) {
         setJob(result.data);
       } else {
@@ -49,7 +50,7 @@ const JobDetail = () => {
     try {
       setAnalyzingMatch(true);
       const result = await jobService.analyzeMatch(jobId);
-      
+
       if (result.success) {
         setMatchAnalysis(result.data);
       } else {
@@ -109,17 +110,17 @@ const JobDetail = () => {
               {job.is_active ? '🟢 เปิดรับสมัคร' : '🔴 ปิดรับสมัคร'}
             </span>
           </div>
-          
+
           {user?.user_type === 'Student' && job.is_active && (
             <div className="job-header-actions">
-              <button 
+              <button
                 onClick={handleAnalyzeMatch}
                 className="analyze-button"
                 disabled={analyzingMatch}
               >
                 {analyzingMatch ? '⏳ กำลังวิเคราะห์...' : '🔍 วิเคราะห์ความเหมาะสม'}
               </button>
-              <button 
+              <button
                 onClick={handleApply}
                 className="apply-button-primary"
               >
@@ -139,7 +140,7 @@ const JobDetail = () => {
             </h3>
             <p className="match-score">คะแนนความเหมาะสม: {matchAnalysis.score}%</p>
             <p className="match-reason">{matchAnalysis.reason}</p>
-            
+
             {matchAnalysis.missing_skills && matchAnalysis.missing_skills.length > 0 && (
               <div className="missing-skills">
                 <h4>ทักษะที่ควรพัฒนา:</h4>
@@ -150,7 +151,7 @@ const JobDetail = () => {
                 </ul>
               </div>
             )}
-            
+
             {matchAnalysis.recommendations && matchAnalysis.recommendations.length > 0 && (
               <div className="recommendations">
                 <h4>คำแนะนำ:</h4>
@@ -172,10 +173,10 @@ const JobDetail = () => {
           </div>
 
           <div className="info-card">
-            <h3>💰 เงินเดือน</h3>
+            <h3>💰 เบี้ยเลี้ยง</h3>
             <p>
-              {job.salary_min && job.salary_max
-                ? `${job.salary_min.toLocaleString()} - ${job.salary_max.toLocaleString()} บาท/เดือน`
+              {job.allowance_amount
+                ? `${job.allowance_amount.toLocaleString()} ${job.allowance_type === 'daily' ? 'บาท/วัน' : 'บาท/เดือน'}`
                 : 'ตามตกลง'}
             </p>
           </div>
@@ -267,7 +268,7 @@ const JobDetail = () => {
         {/* Apply Button (Bottom) */}
         {user?.user_type === 'Student' && job.is_active && (
           <div className="apply-section">
-            <button 
+            <button
               onClick={handleApply}
               className="apply-button-large"
             >

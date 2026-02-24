@@ -1,263 +1,377 @@
 // frontend/src/components/Student/ResumeUpload.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/resumeUpload.css';
+
+const API_BASE_URL = 'http://localhost:8000';
 
 const ResumeUpload = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
 
+    // States
     const [uploadedFile, setUploadedFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisResult, setAnalysisResult] = useState(null);
     const [jobRecommendations, setJobRecommendations] = useState([]);
+    const [resumeId, setResumeId] = useState(null);
+    const [error, setError] = useState(null);
+
+    // ⭐ NEW: States สำหรับ Resume ที่มีอยู่แล้ว
+    const [existingResume, setExistingResume] = useState(null);
+    const [isLoadingExisting, setIsLoadingExisting] = useState(true);
+    const [showUploadForm, setShowUploadForm] = useState(false);
 
     // Redirect if not logged in
-    React.useEffect(() => {
+    useEffect(() => {
         if (!user) {
             navigate('/login');
         }
     }, [user, navigate]);
 
-    // Mock AI Analysis Function
-    const analyzeResume = (file) => {
-        setIsAnalyzing(true);
-
-        // Simulate AI processing delay
-        setTimeout(() => {
-            // Mock analysis result
-            const mockAnalysis = {
-                skills: [
-                    "Python", "JavaScript", "React", "Node.js",
-                    "Machine Learning", "Data Analysis", "SQL",
-                    "Git", "Docker", "AWS"
-                ],
-                experience: [
-                    {
-                        title: "Software Development Intern",
-                        company: "Tech Startup Co.",
-                        duration: "6 months",
-                        description: "Developed web applications using React and Node.js"
-                    },
-                    {
-                        title: "Academic Project: AI Resume Screening",
-                        type: "University Project",
-                        duration: "3 months",
-                        description: "Built an AI-powered resume screening system"
-                    }
-                ],
-                education: {
-                    degree: "Bachelor of Computer Science",
-                    university: "Example University",
-                    year: "2024"
+    // ⭐ NEW: ตรวจสอบ Resume ที่มีอยู่แล้วตอนเปิดหน้า
+    useEffect(() => {
+        const fetchExistingResume = async () => {
+            try {
+                const token = sessionStorage.getItem('auth_token');
+                if (!token) {
+                    setIsLoadingExisting(false);
+                    return;
                 }
+
+                const response = await fetch(`${API_BASE_URL}/api/resumes/my/list`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.resumes && data.resumes.length > 0) {
+                        // เอา Resume ล่าสุด (อันแรกเพราะเรียงตาม uploaded_at desc)
+                        const latestResume = data.resumes[0];
+                        if (latestResume.status === 'processed' && latestResume.extracted_features) {
+                            setExistingResume(latestResume);
+
+                            // แปลง extracted_features → analysisResult format
+                            const features = latestResume.extracted_features;
+                            const allSkills = [
+                                ...(features.skills?.technical_skills || []),
+                                ...(features.skills?.soft_skills || [])
+                            ];
+                            const projects = (features.projects || []).map(proj => ({
+                                title: proj.name || 'Unnamed Project',
+                                type: 'Project',
+                                duration: proj.duration || 'N/A',
+                                description: proj.description || ''
+                            }));
+
+                            setAnalysisResult({
+                                skills: allSkills,
+                                experience: projects,
+                                education: {
+                                    degree: features.education?.level || 'N/A',
+                                    university: features.education?.university || 'N/A',
+                                    year: features.education?.graduation_year || 'N/A',
+                                    major: features.education?.major || 'N/A',
+                                    gpa: features.education?.gpa || 'N/A'
+                                },
+                                experience_months: features.experience_months || 0,
+                                languages: features.languages || [],
+                                certifications: features.certifications || []
+                            });
+
+                            setResumeId(latestResume.id);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch existing resume:', err);
+            } finally {
+                setIsLoadingExisting(false);
+            }
+        };
+
+        if (user) {
+            fetchExistingResume();
+        }
+    }, [user]);
+
+    // 🚀 Real AI Analysis Function - เชื่อมกับ Backend
+    const analyzeResume = async (file) => {
+        setIsAnalyzing(true);
+        setError(null);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const token = sessionStorage.getItem('auth_token');
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const uploadResponse = await fetch(`${API_BASE_URL}/api/resumes/upload`, {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            });
+
+            if (!uploadResponse.ok) {
+                const errorData = await uploadResponse.json();
+                throw new Error(errorData.detail || 'อัปโหลด Resume ไม่สำเร็จ');
+            }
+
+            const uploadResult = await uploadResponse.json();
+            setResumeId(uploadResult.id);
+
+            // แปลง extracted_features เป็นรูปแบบที่ UI ต้องการ
+            const features = uploadResult.extracted_features || {};
+            const allSkills = [
+                ...(features.skills?.technical_skills || []),
+                ...(features.skills?.soft_skills || [])
+            ];
+            const projects = (features.projects || []).map(proj => ({
+                title: proj.name || 'Unnamed Project',
+                type: 'Project',
+                duration: proj.duration || 'N/A',
+                description: proj.description || ''
+            }));
+
+            const analysisData = {
+                skills: allSkills,
+                experience: projects,
+                education: {
+                    degree: features.education?.level || 'N/A',
+                    university: features.education?.university || 'N/A',
+                    year: features.education?.graduation_year || 'N/A',
+                    major: features.education?.major || 'N/A',
+                    gpa: features.education?.gpa || 'N/A'
+                },
+                experience_months: features.experience_months || 0,
+                languages: features.languages || [],
+                certifications: features.certifications || []
             };
 
-            // Mock job recommendations with match scores
-            const mockJobs = [
-                {
-                    id: "1",
-                    title: "Software Engineer Intern",
-                    company: "ABC Technology",
-                    location: "Bangkok",
-                    matchScore: 95,
-                    requiredSkills: ["Python", "React", "Machine Learning"],
-                    description: "Looking for passionate software engineering intern to join our AI team.",
-                    salary: "15,000 - 20,000 THB/month"
-                },
-                {
-                    id: "2",
-                    title: "Data Analyst Intern",
-                    company: "Digital Solutions Ltd.",
-                    location: "Bangkok",
-                    matchScore: 87,
-                    requiredSkills: ["Python", "Data Analysis", "SQL"],
-                    description: "Join our data analytics team and work on exciting projects.",
-                    salary: "12,000 - 18,000 THB/month"
-                },
-                {
-                    id: "3",
-                    title: "Full Stack Developer Intern",
-                    company: "Innovation Hub",
-                    location: "Chiang Mai",
-                    matchScore: 82,
-                    requiredSkills: ["JavaScript", "React", "Node.js", "SQL"],
-                    description: "Build modern web applications with cutting-edge technologies.",
-                    salary: "14,000 - 19,000 THB/month"
-                },
-                {
-                    id: "4",
-                    title: "Frontend Developer Intern",
-                    company: "Creative Agency",
-                    location: "Bangkok",
-                    matchScore: 75,
-                    requiredSkills: ["JavaScript", "React", "CSS"],
-                    description: "Create beautiful user interfaces for our clients.",
-                    salary: "10,000 - 15,000 THB/month"
-                },
-                {
-                    id: "5",
-                    title: "Backend Developer Intern",
-                    company: "FinTech Startup",
-                    location: "Bangkok",
-                    matchScore: 68,
-                    requiredSkills: ["Python", "Node.js", "SQL", "Docker"],
-                    description: "Work on scalable backend systems for financial applications.",
-                    salary: "13,000 - 17,000 THB/month"
-                },
-                {
-                    id: "6",
-                    title: "DevOps Intern",
-                    company: "Cloud Services Co.",
-                    location: "Bangkok",
-                    matchScore: 55,
-                    requiredSkills: ["Docker", "AWS", "Git", "Linux"],
-                    description: "Learn DevOps practices and cloud infrastructure management.",
-                    salary: "11,000 - 16,000 THB/month"
+            setAnalysisResult(analysisData);
+            setExistingResume({ file_name: file.name, file_size: file.size, uploaded_at: new Date().toISOString() });
+            setShowUploadForm(false);
+
+            // ดึงงานที่แนะนำ
+            try {
+                const matchingHeaders = { 'Content-Type': 'application/json' };
+                if (token) matchingHeaders['Authorization'] = `Bearer ${token}`;
+
+                const matchingResponse = await fetch(`${API_BASE_URL}/api/matching/recommendations`, {
+                    method: 'GET',
+                    headers: matchingHeaders
+                });
+
+                if (matchingResponse.ok) {
+                    const matchingResult = await matchingResponse.json();
+                    const greenJobs = (matchingResult.green || []).map(job => ({
+                        id: job.job_id, title: job.job_title, company: job.company_name,
+                        location: job.department || 'N/A', matchScore: Math.round(job.overall_score),
+                        requiredSkills: job.skills_required || [], description: job.recommendation || '',
+                        salary: 'ติดต่อสอบถาม'
+                    }));
+                    const yellowJobs = (matchingResult.yellow || []).map(job => ({
+                        id: job.job_id, title: job.job_title, company: job.company_name,
+                        location: job.department || 'N/A', matchScore: Math.round(job.overall_score),
+                        requiredSkills: job.skills_required || [], description: job.recommendation || '',
+                        salary: 'ติดต่อสอบถาม'
+                    }));
+                    setJobRecommendations([...greenJobs, ...yellowJobs]);
+                } else {
+                    setJobRecommendations([]);
                 }
-            ];
+            } catch (matchingError) {
+                console.error('Matching Error:', matchingError);
+                setJobRecommendations([]);
+            }
 
-            // Filter jobs: only show >= 50% match
-            const filteredJobs = mockJobs.filter(job => job.matchScore >= 50);
-
-            setAnalysisResult(mockAnalysis);
-            setJobRecommendations(filteredJobs);
             setIsAnalyzing(false);
-        }, 2000);
+
+        } catch (error) {
+            console.error('❌ Analysis Error:', error);
+            setError(error.message);
+            setIsAnalyzing(false);
+            setAnalysisResult(null);
+            setJobRecommendations([]);
+        }
     };
 
     // Handle file upload
     const handleFileUpload = (file) => {
         if (!file) return;
-
-        // Validate file type
-        const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        const validTypes = ['application/pdf'];
         if (!validTypes.includes(file.type)) {
-            alert('กรุณาอัปโหลดไฟล์ PDF เท่านั้น');
+            setError('กรุณาอัปโหลดไฟล์ PDF เท่านั้น');
             return;
         }
-
-        // Validate file size (max 5MB)
-        const maxSize = 5 * 1024 * 1024; // 5MB
+        const maxSize = 15 * 1024 * 1024;
         if (file.size > maxSize) {
-            alert('ไฟล์มีขนาดใหญ่เกิน 5MB');
+            setError('ไฟล์มีขนาดใหญ่เกิน 15MB');
             return;
         }
-
         setUploadedFile(file);
         analyzeResume(file);
     };
 
     // Drag and drop handlers
-    const handleDragEnter = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragging(true);
-    };
-
-    const handleDragLeave = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragging(false);
-    };
-
-    const handleDragOver = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-    };
-
+    const handleDragEnter = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); };
+    const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); };
+    const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); };
     const handleDrop = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragging(false);
-
+        e.preventDefault(); e.stopPropagation(); setIsDragging(false);
         const files = e.dataTransfer.files;
-        if (files && files.length > 0) {
-            handleFileUpload(files[0]);
-        }
+        if (files && files.length > 0) handleFileUpload(files[0]);
     };
-
-    // File input change handler
     const handleFileInputChange = (e) => {
         const files = e.target.files;
-        if (files && files.length > 0) {
-            handleFileUpload(files[0]);
-        }
+        if (files && files.length > 0) handleFileUpload(files[0]);
     };
 
-    // Get match indicator
+    // Match indicator
     const getMatchIndicator = (score) => {
         if (score >= 80) return { emoji: '🟢', label: 'เหมาะสมมาก', color: '#10B981' };
         if (score >= 50) return { emoji: '🟡', label: 'พิจารณาได้', color: '#F59E0B' };
         return { emoji: '🔴', label: 'ไม่เหมาะสม', color: '#EF4444' };
     };
 
-    if (!user) {
-        return null; // Will redirect in useEffect
+    // Format date
+    const formatDate = (dateStr) => {
+        if (!dateStr) return 'N/A';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+
+    // Format file size
+    const formatFileSize = (bytes) => {
+        if (!bytes) return 'N/A';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    if (!user) return null;
+
+    // ⭐ Loading state
+    if (isLoadingExisting) {
+        return (
+            <div className="resume-upload-page">
+                <div className="resume-upload-container">
+                    <div className="analyzing-indicator">
+                        <div className="spinner"></div>
+                        <p>กำลังโหลดข้อมูล Resume...</p>
+                    </div>
+                </div>
+            </div>
+        );
     }
+
+    // ⭐ ตัดสินใจว่าแสดงอะไร: มี Resume อยู่แล้ว + ไม่ได้กด "อัปโหลดใหม่"
+    const shouldShowExistingResume = existingResume && analysisResult && !showUploadForm && !isAnalyzing;
 
     return (
         <div className="resume-upload-page">
             <div className="resume-upload-container">
                 {/* Header */}
                 <div className="page-header">
-                    <h1>📄 อัปโหลด Resume ของคุณ</h1>
-                    <p>ให้ AI วิเคราะห์และแนะนำงานที่เหมาะสมกับคุณ</p>
+                    <h1>{shouldShowExistingResume ? '📄 Resume ของฉัน' : '📄 อัปโหลด Resume ของคุณ'}</h1>
+                    <p>{shouldShowExistingResume
+                        ? 'ข้อมูล Resume ที่ AI วิเคราะห์ไว้แล้ว'
+                        : 'ให้ AI วิเคราะห์และแนะนำงานที่เหมาะสมกับคุณ'
+                    }</p>
                 </div>
 
-                {/* Upload Section */}
-                <div className="upload-section">
-                    <div
-                        className={`upload-dropzone ${isDragging ? 'dragging' : ''} ${uploadedFile ? 'uploaded' : ''}`}
-                        onDragEnter={handleDragEnter}
-                        onDragLeave={handleDragLeave}
-                        onDragOver={handleDragOver}
-                        onDrop={handleDrop}
-                        onClick={() => document.getElementById('file-input').click()}
-                    >
-                        <input
-                            id="file-input"
-                            type="file"
-                            accept=".pdf,.docx"
-                            onChange={handleFileInputChange}
-                            style={{ display: 'none' }}
-                        />
+                {/* ⭐ Existing Resume Info Card */}
+                {shouldShowExistingResume && (
+                    <div className="existing-resume-card">
+                        <div className="resume-file-info">
+                            <div className="file-icon">📎</div>
+                            <div className="file-details">
+                                <h3>{existingResume.file_name}</h3>
+                                <p>ขนาด: {formatFileSize(existingResume.file_size)} • อัปโหลดเมื่อ: {formatDate(existingResume.uploaded_at)}</p>
+                            </div>
+                            <button
+                                className="btn-reupload"
+                                onClick={() => {
+                                    setShowUploadForm(true);
+                                    setUploadedFile(null);
+                                }}
+                            >
+                                📤 อัปโหลดใหม่
+                            </button>
+                        </div>
+                    </div>
+                )}
 
-                        {!uploadedFile ? (
-                            <>
-                                <div className="upload-icon">📤</div>
-                                <h3>Drag & Drop หรือคลิกเพื่ออัปโหลด</h3>
-                                <p>รองรับ PDF เท่านั้น (สูงสุด 5MB)</p>
-                            </>
-                        ) : (
-                            <>
-                                <div className="upload-icon">✅</div>
-                                <h3>{uploadedFile.name}</h3>
-                                <p>ขนาด: {(uploadedFile.size / 1024).toFixed(2)} KB</p>
-                                <button
-                                    className="btn-change-file"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setUploadedFile(null);
-                                        setAnalysisResult(null);
-                                        setJobRecommendations([]);
-                                    }}
-                                >
-                                    เปลี่ยนไฟล์
-                                </button>
-                            </>
+                {/* Upload Section — แสดงเมื่อยังไม่มี Resume หรือกด "อัปโหลดใหม่" */}
+                {(!existingResume || showUploadForm || isAnalyzing) && (
+                    <div className="upload-section">
+                        {showUploadForm && (
+                            <button
+                                className="btn-back-to-resume"
+                                onClick={() => setShowUploadForm(false)}
+                            >
+                                ← กลับไปดู Resume เดิม
+                            </button>
+                        )}
+                        <div
+                            className={`upload-dropzone ${isDragging ? 'dragging' : ''} ${uploadedFile ? 'uploaded' : ''}`}
+                            onDragEnter={handleDragEnter}
+                            onDragLeave={handleDragLeave}
+                            onDragOver={handleDragOver}
+                            onDrop={handleDrop}
+                            onClick={() => document.getElementById('file-input').click()}
+                        >
+                            <input
+                                id="file-input"
+                                type="file"
+                                accept=".pdf"
+                                onChange={handleFileInputChange}
+                                style={{ display: 'none' }}
+                            />
+
+                            {!uploadedFile ? (
+                                <>
+                                    <div className="upload-icon">📤</div>
+                                    <h3>Drag & Drop หรือคลิกเพื่ออัปโหลด</h3>
+                                    <p>รองรับ PDF เท่านั้น (สูงสุด 15MB)</p>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="upload-icon">✅</div>
+                                    <h3>{uploadedFile.name}</h3>
+                                    <p>ขนาด: {formatFileSize(uploadedFile.size)}</p>
+                                </>
+                            )}
+                        </div>
+
+                        {error && (
+                            <div className="error-message" style={{
+                                marginTop: '1rem', padding: '1rem',
+                                backgroundColor: '#FEE2E2', border: '1px solid #EF4444',
+                                borderRadius: '8px', color: '#991B1B'
+                            }}>
+                                <strong>❌ เกิดข้อผิดพลาด:</strong> {error}
+                            </div>
+                        )}
+
+                        {isAnalyzing && (
+                            <div className="analyzing-indicator">
+                                <div className="spinner"></div>
+                                <p>🤖 AI กำลังวิเคราะห์ Resume ของคุณ...</p>
+                            </div>
                         )}
                     </div>
-
-                    {isAnalyzing && (
-                        <div className="analyzing-indicator">
-                            <div className="spinner"></div>
-                            <p>🤖 AI กำลังวิเคราะห์ Resume ของคุณ...</p>
-                        </div>
-                    )}
-                </div>
+                )}
 
                 {/* AI Analysis Results */}
                 {analysisResult && !isAnalyzing && (
@@ -295,9 +409,35 @@ const ResumeUpload = () => {
                                 <div className="education-info">
                                     <h4>{analysisResult.education.degree}</h4>
                                     <p>{analysisResult.education.university}</p>
+                                    <p>สาขา: {analysisResult.education.major}</p>
+                                    <p>GPA: {analysisResult.education.gpa}</p>
                                     <p>ปีที่จบการศึกษา: {analysisResult.education.year}</p>
                                 </div>
                             </div>
+
+                            {/* Languages Card */}
+                            {analysisResult.languages && analysisResult.languages.length > 0 && (
+                                <div className="analysis-card">
+                                    <h3>🌐 ภาษา</h3>
+                                    <div className="skills-list">
+                                        {analysisResult.languages.map((lang, index) => (
+                                            <span key={index} className="skill-tag">{typeof lang === 'string' ? lang : lang.language}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Certifications Card */}
+                            {analysisResult.certifications && analysisResult.certifications.length > 0 && (
+                                <div className="analysis-card">
+                                    <h3>🏆 ใบรับรอง</h3>
+                                    <div className="skills-list">
+                                        {analysisResult.certifications.map((cert, index) => (
+                                            <span key={index} className="skill-tag">{cert}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -355,8 +495,8 @@ const ResumeUpload = () => {
                     </div>
                 )}
 
-                {/* Empty State */}
-                {!uploadedFile && (
+                {/* Empty State — ไม่มี Resume และไม่ได้อัปโหลด */}
+                {!existingResume && !uploadedFile && !showUploadForm && (
                     <div className="empty-state">
                         <div className="empty-icon">📋</div>
                         <h3>เริ่มต้นด้วยการอัปโหลด Resume</h3>

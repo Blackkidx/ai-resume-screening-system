@@ -428,7 +428,8 @@ async def get_my_resumes(
                 "uploaded_at": resume["uploaded_at"].isoformat(),
                 "processed_at": resume["processed_at"].isoformat() if resume.get("processed_at") else None,
                 "text_length": len(resume.get("extracted_text", "")),
-                "has_error": bool(resume.get("error_message"))
+                "has_error": bool(resume.get("error_message")),
+                "extracted_features": resume.get("extracted_features")
             }
             resume_list.append(resume_data)
         

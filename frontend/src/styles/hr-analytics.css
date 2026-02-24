@@ -1,0 +1,437 @@
+/* hr-analytics.css — Professional Analytics Page */
+
+.analytics-page {
+    min-height: calc(100vh - 70px);
+    background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+    padding: 32px 0;
+}
+
+.analytics-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+/* Loading */
+.analytics-loading,
+.analytics-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    color: #94A3B8;
+    gap: 16px;
+}
+
+.loading-ring {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(56, 189, 248, 0.2);
+    border-top-color: #38BDF8;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Header */
+.analytics-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+
+.analytics-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.btn-back-analytics {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #CBD5E1;
+    padding: 8px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+}
+
+.btn-back-analytics:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #F1F5F9;
+}
+
+.analytics-title h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #F1F5F9;
+    margin: 0;
+}
+
+.analytics-title p {
+    color: #64748B;
+    margin: 2px 0 0;
+    font-size: 0.9rem;
+}
+
+/* Summary Cards */
+.analytics-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.summary-card {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    backdrop-filter: blur(12px);
+    transition: all 0.3s;
+}
+
+.summary-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.summary-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.summary-icon.jobs {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60A5FA;
+}
+
+.summary-icon.apps {
+    background: rgba(168, 85, 247, 0.2);
+    color: #C084FC;
+}
+
+.summary-icon.rate {
+    background: rgba(34, 197, 94, 0.2);
+    color: #4ADE80;
+}
+
+.summary-icon.ai {
+    background: rgba(251, 146, 60, 0.2);
+    color: #FB923C;
+}
+
+.summary-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-number {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #F1F5F9;
+    line-height: 1.1;
+}
+
+.summary-label {
+    font-size: 0.8rem;
+    color: #94A3B8;
+    margin-top: 4px;
+}
+
+/* Status Breakdown Row */
+.analytics-status-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.status-block {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+    border: 1px solid;
+}
+
+.status-block.accepted {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.2);
+    color: #4ADE80;
+}
+
+.status-block.rejected {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: #F87171;
+}
+
+.status-block.pending {
+    background: rgba(251, 191, 36, 0.1);
+    border-color: rgba(251, 191, 36, 0.2);
+    color: #FBBF24;
+}
+
+.status-count {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.status-text {
+    font-size: 0.85rem;
+    opacity: 0.8;
+}
+
+/* Charts Section */
+.analytics-charts-section {
+    margin-bottom: 24px;
+}
+
+.analytics-charts-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.chart-card {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 24px;
+    backdrop-filter: blur(12px);
+}
+
+.chart-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #E2E8F0;
+    margin: 0 0 20px;
+}
+
+.chart-wrap {
+    position: relative;
+}
+
+.chart-doughnut {
+    height: 220px;
+}
+
+.chart-bar {
+    height: 240px;
+}
+
+.chart-card-full {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 24px;
+    backdrop-filter: blur(12px);
+}
+
+.chart-card-full h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #E2E8F0;
+    margin: 0 0 20px;
+}
+
+/* Per-Job Table */
+.analytics-table-section {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 28px;
+    backdrop-filter: blur(12px);
+}
+
+.analytics-table-section h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.2rem;
+    color: #F1F5F9;
+    margin: 0 0 20px;
+}
+
+.analytics-table-wrap {
+    overflow-x: auto;
+}
+
+.analytics-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.analytics-table thead th {
+    text-align: left;
+    padding: 12px 16px;
+    color: #94A3B8;
+    font-weight: 500;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.analytics-table tbody tr {
+    transition: background 0.2s;
+}
+
+.analytics-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.analytics-table tbody td {
+    padding: 14px 16px;
+    color: #CBD5E1;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.td-title {
+    font-weight: 600;
+    color: #F1F5F9;
+    max-width: 240px;
+}
+
+.td-num {
+    text-align: center;
+    font-weight: 600;
+}
+
+.td-green {
+    color: #4ADE80;
+}
+
+.td-red {
+    color: #F87171;
+}
+
+.td-yellow {
+    color: #FBBF24;
+}
+
+.table-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.table-badge.active {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ADE80;
+}
+
+.table-badge.inactive {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94A3B8;
+}
+
+.table-score-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 120px;
+}
+
+.table-score-bar span {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #E2E8F0;
+    white-space: nowrap;
+}
+
+.table-score-fill {
+    height: 6px;
+    background: linear-gradient(90deg, #38BDF8, #818CF8);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+    flex: 1;
+    max-width: 80px;
+}
+
+.btn-view-applicants {
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #38BDF8;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-view-applicants:hover {
+    background: rgba(56, 189, 248, 0.25);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .analytics-summary {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .analytics-status-row {
+        grid-template-columns: 1fr;
+    }
+
+    .analytics-charts-row {
+        grid-template-columns: 1fr;
+    }
+
+    .analytics-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .analytics-table-section {
+        padding: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .analytics-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .analytics-title h1 {
+        font-size: 1.4rem;
+    }
+
+    .summary-card {
+        padding: 16px;
+    }
+}

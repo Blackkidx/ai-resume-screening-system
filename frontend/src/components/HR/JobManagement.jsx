@@ -38,6 +38,7 @@ const JobManagement = () => {
     }
 
     loadJobs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user, navigate, currentPage, searchTerm, filterDepartment, filterStatus]);
 
   // Load jobs from API
@@ -175,13 +176,12 @@ const JobManagement = () => {
     });
   };
 
-  // Format salary range
-  const formatSalary = (min, max) => {
-    if (!min && !max) return 'ไม่ระบุ';
-    if (min && max) return `${min.toLocaleString()} - ${max.toLocaleString()} บาท`;
-    if (min) return `เริ่มต้น ${min.toLocaleString()} บาท`;
-    if (max) return `สูงสุด ${max.toLocaleString()} บาท`;
-    return 'ไม่ระบุ';
+  // Format allowance
+  const formatAllowance = (amount, type) => {
+    if (!amount) return 'ไม่ระบุ';
+    const formattedAmount = amount.toLocaleString();
+    const typeText = type === 'daily' ? 'บาท/วัน' : 'บาท/เดือน';
+    return `${formattedAmount} ${typeText}`;
   };
 
   // Calculate pagination
@@ -274,7 +274,7 @@ const JobManagement = () => {
                     <th>ตำแหน่งงาน</th>
                     <th>แผนก</th>
                     <th>ประเภท</th>
-                    <th>เงินเดือน</th>
+                    <th>เบี้ยเลี้ยง</th>
                     <th>จำนวนตำแหน่ง</th>
                     <th>ใบสมัคร</th>
                     <th>สถานะ</th>
@@ -313,7 +313,7 @@ const JobManagement = () => {
                             {job.job_type}
                           </span>
                         </td>
-                        <td>{formatSalary(job.salary_min, job.salary_max)}</td>
+                        <td>{formatAllowance(job.allowance_amount, job.allowance_type)}</td>
                         <td>
                           <div className="positions-info">
                             <span className="positions-available">{job.positions_available}</span>
@@ -322,7 +322,12 @@ const JobManagement = () => {
                           </div>
                         </td>
                         <td>
-                          <span className="applications-count">
+                          <span
+                            className="applications-count"
+                            style={{ cursor: 'pointer', textDecoration: 'underline', color: '#0369A1' }}
+                            onClick={() => navigate(`/hr/jobs/${job.id}/applicants`)}
+                            title="ดูผู้สมัคร"
+                          >
                             {job.applications_count} ใบสมัคร
                           </span>
                         </td>
@@ -339,6 +344,13 @@ const JobManagement = () => {
                         <td>{formatDate(job.created_at)}</td>
                         <td>
                           <div className="action-buttons">
+                            <button
+                              className="btn-action btn-view"
+                              onClick={() => navigate(`/hr/jobs/${job.id}/applicants`)}
+                              title="ดูผู้สมัคร"
+                            >
+                              👥
+                            </button>
                             <button
                               className="btn-action btn-view"
                               onClick={() => navigate(`/hr/jobs/${job.id}`)}

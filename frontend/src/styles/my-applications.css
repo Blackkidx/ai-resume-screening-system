@@ -1,0 +1,289 @@
+/* =============================================================================
+   MY APPLICATIONS PAGE
+   ============================================================================= */
+
+.my-applications-page {
+    min-height: calc(100vh - 70px);
+    background: linear-gradient(135deg, #F0F9FF 0%, #F8FAFC 100%);
+    padding: 32px 0;
+    font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.applications-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+/* Header */
+.applications-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+    animation: fadeInUp 0.5s ease-out;
+}
+
+.applications-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0F172A;
+    flex: 1;
+}
+
+.applications-count-badge {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    background: #F0F9FF;
+    color: #0369A1;
+    border-radius: 20px;
+    border: 1px solid #BAE6FD;
+}
+
+/* Application Card */
+.application-card {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    padding: 24px;
+    margin-bottom: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    animation: fadeInUp 0.6s ease-out;
+    animation-fill-mode: backwards;
+}
+
+.application-card:nth-child(2) {
+    animation-delay: 0.08s;
+}
+
+.application-card:nth-child(3) {
+    animation-delay: 0.16s;
+}
+
+.application-card:nth-child(4) {
+    animation-delay: 0.24s;
+}
+
+.application-card:nth-child(5) {
+    animation-delay: 0.32s;
+}
+
+.application-card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+}
+
+/* Status Indicator */
+.app-status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.app-status-dot.pending {
+    background: #F59E0B;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.15);
+}
+
+.app-status-dot.accepted {
+    background: #10B981;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+}
+
+.app-status-dot.reviewing {
+    background: #0369A1;
+    box-shadow: 0 0 0 4px rgba(3, 105, 161, 0.15);
+}
+
+.app-status-dot.rejected {
+    background: #EF4444;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+}
+
+.app-status-dot.pending::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border-radius: 50%;
+    border: 2px solid rgba(245, 158, 11, 0.3);
+    animation: pulse-ring 2s ease-out infinite;
+}
+
+/* Card Content */
+.application-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.application-info h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #0F172A;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.application-company {
+    font-size: 0.85rem;
+    color: #64748B;
+    margin-bottom: 8px;
+}
+
+.application-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    font-size: 0.78rem;
+    color: #94A3B8;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Score + Status on right */
+.application-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.app-ai-score {
+    font-family: 'Fira Code', monospace;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0F172A;
+}
+
+.app-ai-score span {
+    font-size: 0.75rem;
+    color: #94A3B8;
+    font-weight: 500;
+}
+
+.app-status-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+.app-status-badge.pending {
+    background: #FFFBEB;
+    color: #D97706;
+}
+
+.app-status-badge.accepted {
+    background: #ECFDF5;
+    color: #059669;
+}
+
+.app-status-badge.reviewing {
+    background: #F0F9FF;
+    color: #0369A1;
+}
+
+.app-status-badge.rejected {
+    background: #FEF2F2;
+    color: #DC2626;
+}
+
+/* Pulsing Animation */
+@keyframes pulse-ring {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1.8);
+        opacity: 0;
+    }
+}
+
+/* Filter Tabs */
+.filter-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    animation: fadeInUp 0.55s ease-out;
+}
+
+.filter-tab {
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1.5px solid #E2E8F0;
+    background: white;
+    color: #64748B;
+}
+
+.filter-tab:hover {
+    border-color: #CBD5E1;
+    color: #0F172A;
+}
+
+.filter-tab.active {
+    background: #0369A1;
+    color: white;
+    border-color: #0369A1;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .applications-container {
+        padding: 0 16px;
+    }
+
+    .application-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 18px;
+    }
+
+    .app-status-dot {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+    }
+
+    .application-card {
+        position: relative;
+    }
+
+    .application-right {
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .applications-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}

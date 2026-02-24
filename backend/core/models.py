@@ -22,6 +22,8 @@ class UserRegisterRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone: Optional[str] = None
     user_type: UserType = UserType.STUDENT
     
@@ -29,8 +31,9 @@ class UserRegisterRequest(BaseModel):
     def username_must_be_valid(cls, v):
         if len(v) < 3:
             raise ValueError('Username must be at least 3 characters')
-        if not v.replace('_', '').replace('-', '').isalnum():
-            raise ValueError('Username can only contain letters, numbers, underscore and hyphen')
+        allowed_chars = v.replace('_', '').replace('-', '').replace('@', '').replace('.', '')
+        if not allowed_chars.isalnum():
+            raise ValueError('Username can only contain letters, numbers, underscore, hyphen, @ and .')
         return v
     
     @validator('password')
@@ -48,6 +51,8 @@ class UserResponse(BaseModel):
     username: str
     email: str
     full_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone: Optional[str] = None
     user_type: UserType
     is_active: bool
@@ -61,6 +66,8 @@ class TokenResponse(BaseModel):
 
 class UserUpdateRequest(BaseModel):
     full_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
 

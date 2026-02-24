@@ -172,3 +172,21 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# ============================================
+# Project-specific ignores
+# ============================================
+
+# Uploaded files (user resumes, profile images)
+backend/uploads/
+*.pdf
+
+# Node modules (frontend)
+node_modules/
+
+# Agent config
+.agent/
+
+# OS files
+.DS_Store
+Thumbs.db

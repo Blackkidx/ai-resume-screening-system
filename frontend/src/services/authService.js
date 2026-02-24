@@ -9,44 +9,39 @@ class AuthService {
     this.migrateTokenKey();
   }
 
-  // Migration helper
+  // Migration: ลบ token เก่าจาก localStorage (ถ้ามี) เพื่อป้องกัน auto-login
   migrateTokenKey() {
-    const oldToken = localStorage.getItem('token');
-    const newToken = localStorage.getItem('auth_token');
-
-    // ถ้ามี token เก่าแต่ไม่มี token ใหม่ ให้ย้าย
-    if (oldToken && !newToken) {
-      console.log('[AuthService] Migrating token from "token" to "auth_token"');
-      localStorage.setItem('auth_token', oldToken);
-      localStorage.removeItem('token');
-    }
-  }
-
-  // ดึง token จาก localStorage
-  getToken() {
-    return localStorage.getItem('auth_token');
-  }
-
-  // บันทึก token ลง localStorage
-  setToken(token) {
-    localStorage.setItem('auth_token', token);
-  }
-
-  // ลบ token จาก localStorage
-  removeToken() {
+    // ลบ token เก่าจาก localStorage ทั้งหมด
+    localStorage.removeItem('token');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
   }
 
-  // ดึงข้อมูล user จาก localStorage
+  // ดึง token จาก sessionStorage (จะถูกลบเมื่อปิด tab)
+  getToken() {
+    return sessionStorage.getItem('auth_token');
+  }
+
+  // บันทึก token ลง sessionStorage
+  setToken(token) {
+    sessionStorage.setItem('auth_token', token);
+  }
+
+  // ลบ token จาก sessionStorage
+  removeToken() {
+    sessionStorage.removeItem('auth_token');
+    sessionStorage.removeItem('user');
+  }
+
+  // ดึงข้อมูล user จาก sessionStorage
   getCurrentUser() {
-    const userStr = localStorage.getItem('user');
+    const userStr = sessionStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
   }
 
-  // บันทึกข้อมูล user ลง localStorage
+  // บันทึกข้อมูล user ลง sessionStorage
   setCurrentUser(user) {
-    localStorage.setItem('user', JSON.stringify(user));
+    sessionStorage.setItem('user', JSON.stringify(user));
   }
 
   // สร้าง headers สำหรับ API requests
@@ -70,7 +65,9 @@ class AuthService {
           username: userData.username,
           email: userData.email,
           password: userData.password,
-          full_name: `${userData.firstName} ${userData.lastName}`,
+          full_name: `${userData.firstName} ${userData.lastName}`.trim(),
+          first_name: userData.firstName || null,
+          last_name: userData.lastName || null,
           phone: userData.phone || null,
           user_type: 'Student' // บังคับเป็น Student
         }),
@@ -146,7 +143,7 @@ class AuthService {
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {
-      // ลบข้อมูลจาก localStorage
+      // ลบข้อมูลจาก sessionStorage
       this.removeToken();
       return {
         success: true,
@@ -169,7 +166,7 @@ class AuthService {
         throw new Error(data.detail || 'Failed to fetch user data');
       }
 
-      // อัปเดตข้อมูล user ใน localStorage
+      // อัปเดตข้อมูล user ใน sessionStorage
       this.setCurrentUser(data);
 
       return {

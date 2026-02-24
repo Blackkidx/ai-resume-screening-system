@@ -24,7 +24,7 @@ class JobService {
   async getJobs(params = {}) {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params.skip !== undefined) queryParams.append('skip', params.skip);
       if (params.limit) queryParams.append('limit', params.limit);
       if (params.search) queryParams.append('search', params.search);
@@ -253,6 +253,122 @@ class JobService {
         success: false,
         error: error.message
       };
+    }
+  }
+
+  // ✅ ดูงานที่ยังไม่เหมาะสม + Gap Analysis (Student only)
+  async getNotReadyJobs() {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/not-ready/for-me`, {
+        method: 'GET',
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        if (response.status === 400) {
+          throw new Error('กรุณาอัปโหลด Resume ก่อนดูงานที่ยังไม่เหมาะสม');
+        }
+        throw new Error('Failed to fetch not-ready jobs');
+      }
+
+      const data = await response.json();
+      return { success: true, data: data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ✅ ดูรายการงานที่สมัครไว้ (Student only)
+  async getMyApplications() {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/my-applications`, {
+        method: 'GET',
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch applications');
+      }
+
+      const data = await response.json();
+      return { success: true, data: data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ✅ ดูผู้สมัครของตำแหน่งงาน (HR/Admin only)
+  async getApplicants(jobId) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/${jobId}/applicants`, {
+        method: 'GET',
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Failed to fetch applicants');
+      }
+
+      const data = await response.json();
+      return { success: true, data: data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ✅ Accept/Reject ผู้สมัคร (HR/Admin only) — JSON body + reason สำหรับ XGBoost
+  async updateApplicationStatus(appId, status, reason = '') {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/applications/${appId}`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ status, reason })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Failed to update status');
+      }
+
+      const data = await response.json();
+      return { success: true, data: data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ✅ สถิติเชิงลึก (HR/Admin only)
+  async getDetailedAnalytics() {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/analytics/detailed`, {
+        headers: this.getAuthHeaders()
+      });
+      if (!response.ok) throw new Error('Failed to fetch analytics');
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ✅ ดูผู้สมัครทุกตำแหน่ง (HR/Admin only)
+  async getAllApplicants(params = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.search) queryParams.append('search', params.search);
+      if (params.status) queryParams.append('status_filter', params.status);
+      if (params.sortBy) queryParams.append('sort_by', params.sortBy);
+
+      const response = await fetch(
+        `${this.baseURL}/api/jobs/all-applicants?${queryParams.toString()}`,
+        { headers: this.getAuthHeaders() }
+      );
+      if (!response.ok) throw new Error('Failed to fetch applicants');
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
   }
 }

@@ -6,15 +6,15 @@ import '../../styles/navbar.css';
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const { 
-    user, 
-    logout: authLogout, 
+  const {
+    user,
+    logout: authLogout,
     isAuthenticated,
     getInitials,
     getDisplayName,
     getProfileImageUrl
   } = useAuth();
-  
+
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -37,7 +37,7 @@ const Navbar = () => {
     try {
       const result = await authLogout();
       setIsDropdownOpen(false);
-      
+
       if (result.success) {
         alert('ออกจากระบบเรียบร้อยแล้ว');
         navigate('/', { replace: true });
@@ -54,20 +54,22 @@ const Navbar = () => {
     navigate('/profile');
   };
 
-  // ⭐ ฟังก์ชันไปหน้า Dashboard (รวม Admin & HR)
+  // ⭐ ฟังก์ชันไปหน้า Dashboard (รวม Admin & HR & Student)
   const handleDashboard = () => {
     setIsDropdownOpen(false);
-    
+
     if (user?.user_type === 'Admin') {
       navigate('/admin/dashboard');
     } else if (user?.user_type === 'HR') {
       navigate('/hr/dashboard');
+    } else if (user?.user_type === 'Student') {
+      navigate('/student/dashboard');
     }
   };
 
-  // ⭐ ตรวจสอบว่าเป็น Admin หรือ HR
+  // ⭐ ตรวจสอบว่าเป็น Admin, HR หรือ Student
   const hasSpecialRole = () => {
-    return user && (user.user_type === 'Admin' || user.user_type === 'HR');
+    return user && (user.user_type === 'Admin' || user.user_type === 'HR' || user.user_type === 'Student');
   };
 
   // 🎯 ได้รับ URL รูปโปรไฟล์จาก AuthContext
@@ -91,6 +93,14 @@ const Navbar = () => {
         textColor: '#059669',
         bgColor: '#ecfdf5'
       };
+    } else if (user?.user_type === 'Student') {
+      return {
+        title: 'Student Dashboard',
+        icon: '🎓',
+        gradient: 'linear-gradient(135deg, #0369A1 0%, #0EA5E9 100%)',
+        textColor: '#0369A1',
+        bgColor: '#F0F9FF'
+      };
     }
     return null;
   };
@@ -103,27 +113,27 @@ const Navbar = () => {
         <a href="/" className="navbar-logo">
           InternScreen
         </a>
-        
+
         <div className="navbar-menu">
           <div className="navbar-links">
             <a href="/" className="navbar-link">หน้าหลัก</a>
             <a href="/companies" className="navbar-link">บริษัททั้งหมด</a>
           </div>
-          
+
           <div className="navbar-auth">
             {isAuthenticated() ? (
               // แสดง User Menu เมื่อ login แล้ว
               <div className="user-menu" ref={dropdownRef}>
-                <button 
+                <button
                   className="user-button"
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 >
                   {/* 🎯 แสดงรูปโปรไฟล์จริงหรือ Avatar placeholder */}
                   <div className="user-avatar">
                     {profileImageUrl ? (
-                      <img 
-                        src={profileImageUrl} 
-                        alt="Profile" 
+                      <img
+                        src={profileImageUrl}
+                        alt="Profile"
                         className="user-avatar-image"
                         onError={(e) => {
                           // ถ้าโหลดรูปไม่ได้ ซ่อนรูปและแสดง initials
@@ -132,7 +142,7 @@ const Navbar = () => {
                         }}
                       />
                     ) : null}
-                    <div 
+                    <div
                       className="user-avatar-placeholder"
                       style={{
                         display: profileImageUrl ? 'none' : 'flex'
@@ -144,12 +154,12 @@ const Navbar = () => {
                   <span className="user-name">
                     {getDisplayName(user?.full_name)}
                   </span>
-                  <svg 
+                  <svg
                     className={`dropdown-arrow ${isDropdownOpen ? 'open' : ''}`}
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
                     stroke="currentColor"
                   >
                     <polyline points="6,9 12,15 18,9"></polyline>
@@ -159,15 +169,15 @@ const Navbar = () => {
                 {/* 🎨 Enhanced Dropdown Menu */}
                 {isDropdownOpen && (
                   <div className="dropdown-menu enhanced">
-                    
+
                     {/* User Info Header */}
                     <div className="dropdown-header">
                       <div className="user-info-card">
                         <div className="user-avatar-large">
                           {profileImageUrl ? (
-                            <img 
-                              src={profileImageUrl} 
-                              alt="Profile" 
+                            <img
+                              src={profileImageUrl}
+                              alt="Profile"
                               className="user-avatar-large-image"
                             />
                           ) : (
@@ -183,12 +193,12 @@ const Navbar = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Dashboard Section - เน้นพิเศษ */}
                     {hasSpecialRole() && dashboardConfig && (
                       <>
                         <div className="dropdown-section dashboard-section">
-                          <button 
+                          <button
                             className="dropdown-item dashboard-item"
                             onClick={handleDashboard}
                             style={{
@@ -196,14 +206,14 @@ const Navbar = () => {
                               borderLeft: `4px solid ${dashboardConfig.textColor}`
                             }}
                           >
-                            <div className="dashboard-icon" style={{ 
-                              background: dashboardConfig.gradient 
+                            <div className="dashboard-icon" style={{
+                              background: dashboardConfig.gradient
                             }}>
                               <span className="dashboard-emoji">{dashboardConfig.icon}</span>
                             </div>
                             <div className="dashboard-content">
-                              <span className="dashboard-title" style={{ 
-                                color: dashboardConfig.textColor 
+                              <span className="dashboard-title" style={{
+                                color: dashboardConfig.textColor
                               }}>
                                 {dashboardConfig.title}
                               </span>
@@ -211,12 +221,12 @@ const Navbar = () => {
                                 จัดการระบบและข้อมูล
                               </span>
                             </div>
-                            <svg 
-                              className="dashboard-arrow" 
-                              width="20" 
-                              height="20" 
-                              viewBox="0 0 24 24" 
-                              fill="none" 
+                            <svg
+                              className="dashboard-arrow"
+                              width="20"
+                              height="20"
+                              viewBox="0 0 24 24"
+                              fill="none"
                               stroke="currentColor"
                               style={{ color: dashboardConfig.textColor }}
                             >
@@ -224,14 +234,14 @@ const Navbar = () => {
                             </svg>
                           </button>
                         </div>
-                        
+
                         <div className="dropdown-divider"></div>
                       </>
                     )}
-                    
+
                     {/* Regular Menu Items */}
                     <div className="dropdown-section">
-                      <button 
+                      <button
                         className="dropdown-item regular-item"
                         onClick={handleProfile}
                       >
@@ -246,8 +256,8 @@ const Navbar = () => {
                           <span className="item-subtitle">จัดการข้อมูลส่วนตัว</span>
                         </div>
                       </button>
-                      
-                      <button 
+
+                      <button
                         className="dropdown-item regular-item logout-item"
                         onClick={handleLogout}
                       >

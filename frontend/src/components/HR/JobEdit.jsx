@@ -10,7 +10,7 @@ const JobEdit = () => {
     const { user, isAuthenticated } = useAuth();
 
     const getAuthHeaders = () => {
-        const token = localStorage.getItem('auth_token');
+        const token = sessionStorage.getItem('auth_token');
         return token ? {
             'Authorization': `Bearer ${token}`
         } : {};
@@ -68,14 +68,21 @@ const JobEdit = () => {
     ];
 
     const DEPARTMENTS = [
-        'Information Technology',
-        'Marketing',
-        'Sales',
-        'Human Resources',
-        'Finance',
-        'Engineering',
-        'Design',
-        'Operations'
+        'Front-End Developer',
+        'Back-End Developer',
+        'Full-Stack Developer',
+        'Mobile Developer',
+        'Game Developer',
+        'Network Engineer',
+        'System Administrator',
+        'Cloud Engineer',
+        'Cybersecurity',
+        'IT Support',
+        'Data Analyst',
+        'AI / Machine Learning Engineer',
+        'Project Manager',
+        'Software Tester',
+        'Business Analyst'
     ];
 
     // Check permissions and load job data
@@ -93,6 +100,7 @@ const JobEdit = () => {
 
         setDepartments(DEPARTMENTS);
         loadJobData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAuthenticated, user, navigate, jobId]);
 
     // Load existing job data
@@ -107,7 +115,6 @@ const JobEdit = () => {
 
             if (response.ok) {
                 const job = await response.json();
-                console.log('Loaded job data:', job);
 
                 // Populate form with existing data
                 setFormData({
@@ -277,7 +284,7 @@ const JobEdit = () => {
             // Convert year_level to student_levels
             const student_levels = formData.year_level.map(year => `ปี ${year}`);
 
-            // Prepare job data
+            // Prepare job data - only send fields that have values
             const jobData = {
                 title: formData.title.trim(),
                 description: formData.description.trim(),
@@ -288,7 +295,6 @@ const JobEdit = () => {
                 allowance_amount: formData.allowance_amount ? parseInt(formData.allowance_amount) : null,
                 allowance_type: formData.allowance_type,
                 requirements: formData.requirements,
-                skills_required: formData.skills_required,
                 majors: formData.majors.length > 0 ? formData.majors : ['ทุกสาขา'],
                 min_gpa: formData.min_gpa ? parseFloat(formData.min_gpa) : null,
                 student_levels: student_levels.length > 0 ? student_levels : ['ปี 3', 'ปี 4'],
@@ -299,7 +305,10 @@ const JobEdit = () => {
                 end_date: formData.end_date || null
             };
 
-            console.log('Updating job with data:', jobData);
+            // Only add skills_required if it has items (backend validation requires min 1 item)
+            if (formData.skills_required && formData.skills_required.length > 0) {
+                jobData.skills_required = formData.skills_required;
+            }
 
             const response = await fetch(`http://localhost:8000/api/jobs/${jobId}`, {
                 method: 'PUT',
@@ -310,9 +319,7 @@ const JobEdit = () => {
                 body: JSON.stringify(jobData)
             });
 
-            console.log('Response status:', response.status);
             const result = await response.json();
-            console.log('Response data:', result);
 
             if (response.ok) {
                 setSuccess('อัปเดตตำแหน่งงานเรียบร้อยแล้ว');
@@ -321,7 +328,6 @@ const JobEdit = () => {
                 }, 1500);
             } else {
                 // Handle error response
-                console.error('Error response:', result);
 
                 let errorMessage = 'เกิดข้อผิดพลาดในการอัปเดตตำแหน่งงาน';
 

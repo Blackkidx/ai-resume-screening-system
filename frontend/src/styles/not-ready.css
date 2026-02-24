@@ -1,0 +1,289 @@
+/* =============================================================================
+   NOT READY JOBS / GAP ANALYSIS - Shares base from student-dashboard.css
+   ============================================================================= */
+
+.gap-analysis-page {
+    min-height: calc(100vh - 70px);
+    background: linear-gradient(135deg, #FFF7ED 0%, #F8FAFC 50%, #FEF2F2 100%);
+    padding: 32px 0;
+    font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.gap-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+/* Header */
+.gap-header {
+    margin-bottom: 32px;
+    animation: fadeInUp 0.5s ease-out;
+}
+
+.gap-header-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.gap-back-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 1.5px solid #E2E8F0;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: all 0.2s ease;
+    color: #64748B;
+}
+
+.gap-back-btn:hover {
+    border-color: #0369A1;
+    color: #0369A1;
+    background: #F0F9FF;
+}
+
+.gap-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0F172A;
+}
+
+.gap-header p {
+    color: #64748B;
+    font-size: 1rem;
+    margin-left: 56px;
+}
+
+/* Gap Job Card */
+.gap-job-card {
+    background: white;
+    border-radius: 20px;
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    margin-bottom: 20px;
+    overflow: hidden;
+    animation: fadeInUp 0.6s ease-out;
+    animation-fill-mode: backwards;
+}
+
+.gap-job-card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.gap-job-card:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.gap-job-card:nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+.gap-job-top {
+    padding: 24px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    border-bottom: 1px solid #F1F5F9;
+}
+
+.gap-job-info h3 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #0F172A;
+    margin-bottom: 4px;
+}
+
+.gap-job-info .gap-company {
+    font-size: 0.875rem;
+    color: #64748B;
+}
+
+.gap-score-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: #FEF2F2;
+    border-radius: 12px;
+    flex-shrink: 0;
+}
+
+.gap-score-value {
+    font-family: 'Fira Code', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #DC2626;
+}
+
+.gap-score-label {
+    font-size: 0.75rem;
+    color: #EF4444;
+    font-weight: 500;
+}
+
+/* Breakdown Bar */
+.gap-breakdown {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    padding: 20px 28px;
+    background: #FAFBFC;
+    border-bottom: 1px solid #F1F5F9;
+}
+
+.gap-breakdown-item {
+    text-align: center;
+}
+
+.gap-breakdown-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94A3B8;
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+
+.gap-breakdown-bar {
+    height: 6px;
+    background: #E2E8F0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.gap-breakdown-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s ease-out;
+}
+
+.gap-breakdown-fill.high {
+    background: linear-gradient(90deg, #10B981, #34D399);
+}
+
+.gap-breakdown-fill.medium {
+    background: linear-gradient(90deg, #F59E0B, #FBBF24);
+}
+
+.gap-breakdown-fill.low {
+    background: linear-gradient(90deg, #EF4444, #F87171);
+}
+
+.gap-breakdown-value {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+/* Missing Skills */
+.gap-skills-section {
+    padding: 20px 28px;
+}
+
+.gap-skills-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0F172A;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.missing-skills-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.missing-skill-tag {
+    padding: 5px 12px;
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #B91C1C;
+}
+
+/* Recommendations */
+.gap-recommendations {
+    padding: 0 28px 24px;
+}
+
+.gap-recommendations-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #059669;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.recommendation-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.recommendation-item {
+    padding: 10px 14px;
+    background: #F0FDF4;
+    border-radius: 10px;
+    border: 1px solid #BBF7D0;
+    font-size: 0.85rem;
+    color: #166534;
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.recommendation-item::before {
+    content: '→';
+    color: #059669;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .gap-container {
+        padding: 0 16px;
+    }
+
+    .gap-header h1 {
+        font-size: 1.4rem;
+    }
+
+    .gap-job-top {
+        flex-direction: column;
+        padding: 20px;
+    }
+
+    .gap-breakdown {
+        grid-template-columns: repeat(2, 1fr);
+        padding: 16px 20px;
+    }
+
+    .gap-skills-section,
+    .gap-recommendations {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+}

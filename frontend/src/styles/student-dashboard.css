@@ -1,0 +1,708 @@
+/* =============================================================================
+   STUDENT DASHBOARD - Premium Design System
+   Colors: Professional Blue (#0369A1) + Success Green (#10B981) + Warm Yellow (#F59E0B)
+   Font: System + Fira Sans / Fira Code
+   ============================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+
+/* =============================================================================
+   BASE LAYOUT
+   ============================================================================= */
+
+.student-dashboard {
+  min-height: calc(100vh - 70px);
+  background: linear-gradient(135deg, #F0F9FF 0%, #F8FAFC 50%, #F0FDF4 100%);
+  padding: 32px 0;
+  font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.student-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* =============================================================================
+   WELCOME HEADER
+   ============================================================================= */
+
+.welcome-section {
+  margin-bottom: 32px;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.welcome-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.welcome-text h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+
+.welcome-text h1 span {
+  background: linear-gradient(135deg, #0369A1, #0284C7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcome-text p {
+  color: #64748B;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.welcome-actions {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* =============================================================================
+   STATS OVERVIEW CARDS
+   ============================================================================= */
+
+.stats-overview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 32px;
+  animation: fadeInUp 0.7s ease-out;
+}
+
+.overview-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+
+.overview-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 16px 16px 0 0;
+  transition: height 0.3s ease;
+}
+
+.overview-card.green::before { background: linear-gradient(90deg, #10B981, #34D399); }
+.overview-card.yellow::before { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+.overview-card.red::before { background: linear-gradient(90deg, #EF4444, #F87171); }
+.overview-card.blue::before { background: linear-gradient(90deg, #0369A1, #0EA5E9); }
+
+.overview-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+}
+
+.overview-card:hover::before {
+  height: 4px;
+}
+
+.overview-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  margin-bottom: 16px;
+  font-weight: 700;
+}
+
+.overview-card.green .overview-card-icon {
+  background: #ECFDF5;
+  color: #059669;
+}
+
+.overview-card.yellow .overview-card-icon {
+  background: #FFFBEB;
+  color: #D97706;
+}
+
+.overview-card.red .overview-card-icon {
+  background: #FEF2F2;
+  color: #DC2626;
+}
+
+.overview-card.blue .overview-card-icon {
+  background: #F0F9FF;
+  color: #0369A1;
+}
+
+.overview-card-number {
+  font-family: 'Fira Code', monospace;
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #0F172A;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.overview-card-label {
+  font-size: 0.875rem;
+  color: #64748B;
+  font-weight: 500;
+}
+
+/* =============================================================================
+   SECTION CARDS
+   ============================================================================= */
+
+.dashboard-section {
+  background: white;
+  border-radius: 20px;
+  padding: 32px;
+  margin-bottom: 24px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  animation: fadeInUp 0.8s ease-out;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.section-header h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0F172A;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-badge {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.section-badge.green {
+  background: #ECFDF5;
+  color: #059669;
+}
+
+.section-badge.yellow {
+  background: #FFFBEB;
+  color: #D97706;
+}
+
+.section-link {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0369A1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  border: none;
+  background: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.section-link:hover {
+  color: #0284C7;
+}
+
+/* =============================================================================
+   JOB CARDS
+   ============================================================================= */
+
+.job-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+}
+
+.job-card {
+  background: #FAFBFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+}
+
+.job-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+.job-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.job-card-info h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #0F172A;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.job-card-company {
+  font-size: 0.875rem;
+  color: #64748B;
+  font-weight: 500;
+}
+
+/* Score Ring */
+
+.score-ring {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.score-ring svg {
+  width: 56px;
+  height: 56px;
+  transform: rotate(-90deg);
+}
+
+.score-ring .ring-bg {
+  fill: none;
+  stroke: #E2E8F0;
+  stroke-width: 4;
+}
+
+.score-ring .ring-fill {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s ease-out;
+}
+
+.score-ring .ring-fill.green { stroke: #10B981; }
+.score-ring .ring-fill.yellow { stroke: #F59E0B; }
+.score-ring .ring-fill.red { stroke: #EF4444; }
+
+.score-ring .score-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Fira Code', monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+/* Zone Badge */
+
+.zone-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.zone-badge.green {
+  background: #ECFDF5;
+  color: #059669;
+}
+
+.zone-badge.yellow {
+  background: #FFFBEB;
+  color: #D97706;
+}
+
+.zone-badge.red {
+  background: #FEF2F2;
+  color: #DC2626;
+}
+
+/* Score Breakdown */
+
+.score-breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.breakdown-item {
+  text-align: center;
+  padding: 10px 8px;
+  background: white;
+  border-radius: 10px;
+  border: 1px solid #F1F5F9;
+}
+
+.breakdown-label {
+  font-size: 0.7rem;
+  color: #94A3B8;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+}
+
+.breakdown-value {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* Job Card Actions */
+
+.job-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #F1F5F9;
+}
+
+/* =============================================================================
+   BUTTONS
+   ============================================================================= */
+
+.btn-student {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  text-decoration: none;
+  font-family: 'Fira Sans', sans-serif;
+}
+
+.btn-student.primary {
+  background: linear-gradient(135deg, #0369A1, #0284C7);
+  color: white;
+  box-shadow: 0 2px 8px rgba(3, 105, 161, 0.25);
+}
+
+.btn-student.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(3, 105, 161, 0.35);
+}
+
+.btn-student.success {
+  background: linear-gradient(135deg, #059669, #10B981);
+  color: white;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
+}
+
+.btn-student.success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(5, 150, 105, 0.35);
+}
+
+.btn-student.outline {
+  background: white;
+  color: #0369A1;
+  border: 1.5px solid #BAE6FD;
+}
+
+.btn-student.outline:hover {
+  background: #F0F9FF;
+  border-color: #0369A1;
+  transform: translateY(-1px);
+}
+
+.btn-student.ghost {
+  background: transparent;
+  color: #64748B;
+  padding: 8px 16px;
+}
+
+.btn-student.ghost:hover {
+  color: #0F172A;
+  background: #F1F5F9;
+}
+
+.btn-student.sm {
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  border-radius: 8px;
+}
+
+.btn-student.full {
+  width: 100%;
+}
+
+.btn-student:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-student.applied {
+  background: #F1F5F9;
+  color: #64748B;
+  cursor: default;
+}
+
+/* =============================================================================
+   NO RESUME STATE
+   ============================================================================= */
+
+.no-resume-state {
+  text-align: center;
+  padding: 60px 24px;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.no-resume-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  background: linear-gradient(135deg, #F0F9FF, #E0F2FE);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+}
+
+.no-resume-state h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 8px;
+}
+
+.no-resume-state p {
+  color: #64748B;
+  font-size: 1rem;
+  margin-bottom: 24px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* =============================================================================
+   EMPTY STATE
+   ============================================================================= */
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: #94A3B8;
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #64748B;
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  font-size: 0.9rem;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+/* =============================================================================
+   LOADING
+   ============================================================================= */
+
+.dashboard-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+}
+
+.loading-spinner-ring {
+  width: 48px;
+  height: 48px;
+  border: 3px solid #E2E8F0;
+  border-top-color: #0369A1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.dashboard-loading p {
+  color: #64748B;
+  font-weight: 500;
+}
+
+/* =============================================================================
+   TOAST / FEEDBACK
+   ============================================================================= */
+
+.toast-message {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: white;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  animation: slideUp 0.4s ease-out, fadeOut 0.4s ease-in 2.6s;
+}
+
+.toast-message.success {
+  background: linear-gradient(135deg, #059669, #10B981);
+}
+
+.toast-message.error {
+  background: linear-gradient(135deg, #DC2626, #EF4444);
+}
+
+/* =============================================================================
+   ANIMATIONS
+   ============================================================================= */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* =============================================================================
+   RESPONSIVE
+   ============================================================================= */
+
+@media (max-width: 1024px) {
+  .stats-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .student-dashboard {
+    padding: 20px 0;
+  }
+
+  .student-container {
+    padding: 0 16px;
+  }
+
+  .welcome-content {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .welcome-text h1 {
+    font-size: 1.5rem;
+  }
+
+  .stats-overview {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .overview-card {
+    padding: 18px;
+  }
+
+  .overview-card-number {
+    font-size: 1.75rem;
+  }
+
+  .dashboard-section {
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  .job-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .score-breakdown {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-overview {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .overview-card {
+    padding: 14px;
+  }
+
+  .overview-card-number {
+    font-size: 1.5rem;
+  }
+
+  .welcome-text h1 {
+    font-size: 1.35rem;
+  }
+}

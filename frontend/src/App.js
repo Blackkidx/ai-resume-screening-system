@@ -14,8 +14,15 @@ import HRDashboard from './components/HR/HRDashboard';
 import JobCreation from './components/HR/JobCreation';
 import JobEdit from './components/HR/JobEdit';
 import JobManagement from './components/HR/JobManagement';
+import ApplicantReview from './components/HR/ApplicantReview';
+import HRAnalytics from './components/HR/HRAnalytics';
+import CompanyProfile from './components/HR/CompanyProfile';
+import ApplicantSearch from './components/HR/ApplicantSearch';
 import Profile from './components/Profile/Profile';
 import ResumeUpload from './components/Student/ResumeUpload';
+import StudentDashboard from './components/Student/StudentDashboard';
+import NotReadyJobs from './components/Student/NotReadyJobs';
+import MyApplications from './components/Student/MyApplications';
 import './styles/global.css';
 
 function App() {
@@ -43,14 +50,19 @@ function App() {
             <Route path="/hr/jobs/create" element={<JobCreation />} />
             <Route path="/hr/jobs/:jobId/edit" element={<JobEdit />} />
             <Route path="/hr/jobs" element={<JobManagement />} />
+            <Route path="/hr/jobs/:jobId/applicants" element={<ApplicantReview />} />
+            <Route path="/hr/analytics" element={<HRAnalytics />} />
+            <Route path="/hr/company" element={<CompanyProfile />} />
+            <Route path="/hr/search" element={<ApplicantSearch />} />
 
             {/* User Routes */}
             <Route path="/profile" element={<Profile />} />
 
             {/* Student Routes */}
+            <Route path="/student/dashboard" element={<StudentDashboard />} />
             <Route path="/student/resume" element={<ResumeUpload />} />
-
-            {/* จะเพิ่ม route อื่นๆ ทีหลัง */}
+            <Route path="/student/not-ready" element={<NotReadyJobs />} />
+            <Route path="/student/applications" element={<MyApplications />} />
           </Routes>
         </Router>
       </AuthProvider>

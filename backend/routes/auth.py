@@ -108,12 +108,24 @@ async def register_user(user_data: UserRegisterRequest):
     # Hash password
     password_hash = hash_password(user_data.password)
     
+    # สร้าง full_name จาก first_name + last_name (ถ้ามี)
+    first_name = user_data.first_name
+    last_name = user_data.last_name
+    if first_name and last_name:
+        full_name = f"{first_name} {last_name}"
+    elif first_name:
+        full_name = first_name
+    else:
+        full_name = user_data.full_name
+
     # สร้าง user document
     user_doc = {
         "username": user_data.username,
         "email": user_data.email,
         "password_hash": password_hash,
-        "full_name": user_data.full_name,
+        "full_name": full_name,
+        "first_name": first_name,
+        "last_name": last_name,
         "phone": user_data.phone,
         "user_type": user_data.user_type.value,
         "company_id": None,
@@ -160,6 +172,8 @@ async def register_user(user_data: UserRegisterRequest):
         username=created_user["username"],
         email=created_user["email"],
         full_name=created_user["full_name"],
+        first_name=created_user.get("first_name"),
+        last_name=created_user.get("last_name"),
         phone=created_user.get("phone"),
         user_type=UserType(created_user["user_type"]),
         is_active=created_user["is_active"],
@@ -233,6 +247,8 @@ async def login_user(login_data: UserLoginRequest):
         username=user["username"],
         email=user["email"],
         full_name=user["full_name"],
+        first_name=user.get("first_name"),
+        last_name=user.get("last_name"),
         phone=user.get("phone"),
         user_type=UserType(user["user_type"]),
         is_active=user["is_active"],
@@ -283,6 +299,8 @@ async def get_current_user_info(user_id: str = Depends(get_current_user_id)):
             "username": user["username"],
             "email": user["email"],
             "full_name": user["full_name"],
+            "first_name": user.get("first_name"),
+            "last_name": user.get("last_name"),
             "phone": user.get("phone"),
             "user_type": user["user_type"],
             "roles": user_roles,  # เพิ่ม roles

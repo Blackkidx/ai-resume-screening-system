@@ -53,6 +53,34 @@ class JobService {
     }
   }
 
+  // ✅ ดึงรายการงานของบริษัทตัวเอง (HR/Admin only)
+  async getMyCompanyJobs(params = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+
+      if (params.skip !== undefined) queryParams.append('skip', params.skip);
+      if (params.limit) queryParams.append('limit', params.limit);
+      if (params.search) queryParams.append('search', params.search);
+      if (params.department) queryParams.append('department', params.department);
+      if (params.is_active !== undefined) queryParams.append('is_active', params.is_active);
+
+      const response = await fetch(`${this.baseURL}/api/jobs/my-company?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Failed to fetch company jobs');
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // ✅ ดึงรายละเอียดงาน (ต้อง login)
   async getJobById(jobId) {
     try {

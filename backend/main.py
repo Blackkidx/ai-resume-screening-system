@@ -39,6 +39,16 @@ except ImportError as e:
     JOB_ROUTER_AVAILABLE = False
     job_router = None
 
+# Import XGBoost router
+try:
+    from routes.xgboost import router as xgboost_router
+    XGBOOST_ROUTER_AVAILABLE = True
+    print("[OK] XGBoost router imported successfully")
+except ImportError as e:
+    print(f"[WARNING] XGBoost router not available: {e}")
+    XGBOOST_ROUTER_AVAILABLE = False
+    xgboost_router = None
+
 # Load environment variables
 load_dotenv()
 
@@ -97,6 +107,13 @@ if JOB_ROUTER_AVAILABLE and job_router is not None:
 else:
     print("[WARNING] Job router skipped")
 
+# Include XGBoost router
+if XGBOOST_ROUTER_AVAILABLE and xgboost_router is not None:
+    app.include_router(xgboost_router, prefix="/api/xgboost")
+    print("[OK] XGBoost router included")
+else:
+    print("[WARNING] XGBoost router skipped")
+
 # =============================================================================
 # 🔄 APP LIFECYCLE EVENTS
 # =============================================================================
@@ -116,6 +133,17 @@ async def startup_event():
         if not os.path.exists(directory):
             os.makedirs(directory)
             print(f"[*] Created directory: {directory}")
+    
+    # Initialize XGBoost Service
+    try:
+        from services.xgboost_service import XGBoostService
+        xgb = XGBoostService.get_instance()
+        if xgb.is_model_available():
+            print("[OK] ✅ XGBoost model loaded")
+        else:
+            print("[INFO] ⚠️ XGBoost model not found — using rule-based fallback")
+    except Exception as e:
+        print(f"[WARNING] XGBoost service init failed: {e}")
     
     print("[*] Application started successfully!")
     print(f"[*] Static files available at: http://localhost:8000/uploads/")

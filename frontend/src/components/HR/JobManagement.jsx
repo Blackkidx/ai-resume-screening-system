@@ -41,7 +41,7 @@ const JobManagement = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user, navigate, currentPage, searchTerm, filterDepartment, filterStatus]);
 
-  // Load jobs from API
+  // Load jobs from API — ใช้ /my-company endpoint เพื่อกรองเฉพาะบริษัทตัวเอง
   const loadJobs = async () => {
     try {
       setLoading(true);
@@ -58,43 +58,19 @@ const JobManagement = () => {
         params.append('is_active', filterStatus === 'active' ? 'true' : 'false');
       }
 
-      console.log('Fetching jobs with params:', params.toString());
-
-      const response = await fetch(`http://localhost:8000/api/jobs?${params}`, {
+      const response = await fetch(`http://localhost:8000/api/jobs/my-company?${params}`, {
         headers: getAuthHeaders(),
       });
 
-      console.log('Response status:', response.status);
-
       if (response.ok) {
         const result = await response.json();
-        console.log('Response data:', result);
+        const jobsData = result.jobs || [];
+        const totalCount = result.total_count || jobsData.length;
 
-        // Handle different response formats
-        let jobsData = [];
-        let totalCount = 0;
-
-        if (Array.isArray(result)) {
-          // If result is directly an array
-          jobsData = result;
-          totalCount = result.length;
-        } else if (result.jobs && Array.isArray(result.jobs)) {
-          // If result has jobs property
-          jobsData = result.jobs;
-          totalCount = result.total_count || result.jobs.length;
-        } else if (typeof result === 'object' && result !== null) {
-          // If result is an object but not the expected format
-          console.warn('Unexpected response format:', result);
-          jobsData = [];
-          totalCount = 0;
-        }
-
-        console.log('Processed jobs data:', jobsData);
         setJobs(jobsData);
         setTotalJobs(totalCount);
       } else {
         const errorData = await response.json();
-        console.error('Error response:', errorData);
         setError(errorData.detail || 'เกิดข้อผิดพลาดในการโหลดข้อมูลงาน');
         setJobs([]);
         setTotalJobs(0);

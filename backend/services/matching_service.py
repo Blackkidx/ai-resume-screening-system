@@ -662,6 +662,54 @@ class MatchingService:
             "recommendations": recommendations
         }
 
+    # ─────────────────────────────────────────────────────────────
+    # 🤖 AI-First Matching — XGBoost เป็น primary, Rule-based เป็น fallback
+    # ─────────────────────────────────────────────────────────────
+    def calculate_ai_match(
+        self,
+        resume_features: Dict[str, Any],
+        job_requirements: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        🤖 AI-first matching: XGBoost → fallback Rule-based
+
+        1. คำนวณ rule-based score (เหมือนเดิม)
+        2. ถ้ามี XGBoost model → ใช้ XGBoost เป็น AI หลัก
+        3. ถ้าไม่มี → ใช้ rule-based เหมือนเดิม
+
+        Returns:
+            Dict with rule-based result + XGBoost result (if available)
+        """
+        # Step 1: Rule-based score (เรียก method เดิม — ไม่แก้)
+        rule_result = self.calculate_match(resume_features, job_requirements)
+
+        # Step 2: ลอง XGBoost
+        try:
+            from services.xgboost_service import XGBoostService
+            xgboost_service = XGBoostService.get_instance()
+            xgb_result = xgboost_service.predict(rule_result["breakdown"])
+        except Exception as e:
+            logger.warning(f"[MatchingService] XGBoost unavailable: {e}")
+            xgb_result = {"model_available": False}
+
+        # Step 3: Merge results
+        if xgb_result.get("model_available"):
+            return {
+                **rule_result,
+                "ai_method": "xgboost",
+                "xgboost_score": xgb_result["xgboost_score"],
+                "xgboost_decision": xgb_result["xgboost_decision"],
+                "xgboost_confidence": xgb_result["xgboost_confidence"],
+                "xgboost_probability": xgb_result["xgboost_probability"],
+                "model_available": True,
+            }
+        else:
+            return {
+                **rule_result,
+                "ai_method": "rule_based",
+                "model_available": False,
+            }
+
 
 # =============================================================================
 # 🧪 TEST - รันไฟล์โดยตรงเพื่อทดสอบ

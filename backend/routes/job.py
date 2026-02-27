@@ -448,6 +448,56 @@ async def get_all_applicants(
 
 
 # =============================================================================
+# HR-SPECIFIC JOB LISTING — กรองเฉพาะงานของบริษัทตัวเอง
+# =============================================================================
+
+@router.get("/my-company")
+async def get_my_company_jobs(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    search: Optional[str] = None,
+    department: Optional[str] = None,
+    is_active: Optional[str] = None,
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+):
+    """HR เห็นเฉพาะงานของบริษัทตัวเอง / Admin เห็นทั้งหมด"""
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    job_filter = {}
+
+    # HR → กรองเฉพาะบริษัทตัวเอง
+    if user_type == "HR":
+        user = await db.users.find_one({"_id": ObjectId(current_user["sub"])})
+        if not user or not user.get("company_id"):
+            raise HTTPException(status_code=403, detail="HR user must be assigned to a company")
+        job_filter["company_id"] = str(user["company_id"])
+
+    # Filters
+    if search:
+        job_filter["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"description": {"$regex": search, "$options": "i"}},
+            {"department": {"$regex": search, "$options": "i"}},
+        ]
+    if department:
+        job_filter["department"] = department
+    if is_active is not None:
+        job_filter["is_active"] = is_active.lower() == "true"
+
+    total_count = await db.jobs.count_documents(job_filter)
+    cursor = db.jobs.find(job_filter).sort("created_at", -1).skip(skip).limit(limit)
+    jobs = await cursor.to_list(length=limit)
+
+    return {
+        "jobs": [transform_job_data(job) for job in jobs],
+        "total_count": total_count,
+    }
+
+
+# =============================================================================
 # AI RECOMMENDATIONS (Student) — ต้องอยู่ก่อน /{job_id} เพื่อไม่ให้ FastAPI จับผิด route
 # =============================================================================
 
@@ -732,11 +782,25 @@ async def delete_job(
     db=Depends(get_database),
 ):
     """Soft delete — เปลี่ยน is_active เป็น False"""
-    if current_user.get("user_type") not in ["HR", "Admin"]:
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
         raise HTTPException(status_code=403, detail="HR or Admin only")
 
     if not ObjectId.is_valid(job_id):
         raise HTTPException(status_code=400, detail="Invalid job ID")
+
+    # HR: ต้องเป็น job ของบริษัทตัวเองเท่านั้น
+    if user_type == "HR":
+        job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        user = await db.users.find_one({"_id": ObjectId(current_user["sub"])})
+        if not user or not user.get("company_id"):
+            raise HTTPException(status_code=403, detail="HR user must be assigned to a company")
+
+        if str(job.get("company_id")) != str(user["company_id"]):
+            raise HTTPException(status_code=403, detail="You can only delete jobs from your company")
 
     await db.jobs.update_one(
         {"_id": ObjectId(job_id)},
@@ -847,7 +911,8 @@ async def get_applicants(
     db=Depends(get_database),
 ):
     """HR/Admin ดูรายชื่อผู้สมัคร (เรียงตาม AI score สูงสุด)"""
-    if current_user.get("user_type") not in ["HR", "Admin"]:
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
         raise HTTPException(status_code=403, detail="HR or Admin only")
 
     if not ObjectId.is_valid(job_id):
@@ -855,10 +920,22 @@ async def get_applicants(
 
     # ดึงข้อมูล job
     job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # HR: ต้องเป็น job ของบริษัทตัวเองเท่านั้น
+    if user_type == "HR":
+        user = await db.users.find_one({"_id": ObjectId(current_user["sub"])})
+        if not user or not user.get("company_id"):
+            raise HTTPException(status_code=403, detail="HR user must be assigned to a company")
+
+        if str(job.get("company_id")) != str(user["company_id"]):
+            raise HTTPException(status_code=403, detail="You can only view applicants for your company's jobs")
+
     job_info = {
-        "title": job.get("title", "ตำแหน่งงาน") if job else "ตำแหน่งงาน",
-        "company_name": job.get("company_name", "บริษัท") if job else "บริษัท",
-        "department": job.get("department", "") if job else "",
+        "title": job.get("title", "ตำแหน่งงาน"),
+        "company_name": job.get("company_name", "บริษัท"),
+        "department": job.get("department", ""),
     }
 
     applications = await db.applications.find(

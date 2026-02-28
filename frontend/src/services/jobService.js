@@ -380,6 +380,58 @@ class JobService {
     }
   }
 
+  // ==========================================
+  // INTERVIEW SCHEDULING
+  // ==========================================
+
+  // ✅ HR กำหนดนัดสัมภาษณ์
+  async scheduleInterview(appId, interviewData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/applications/${appId}/schedule-interview`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(interviewData)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'เกิดข้อผิดพลาดในการนัดสัมภาษณ์');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message || 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้' };
+    }
+  }
+
+  // ✅ Student ยืนยัน/ขอเลื่อน (action = 'confirm' | 'reschedule')
+  async respondInterview(appId, responseData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/applications/${appId}/interview-response`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(responseData)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'เกิดข้อผิดพลาดในการส่งการตอบรับ');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message || 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้' };
+    }
+  }
+
+  // ✅ HR อนุมัติ/ปฏิเสธการขอเลื่อน (action = 'approve' | 'deny')
+  async approveReschedule(appId, approvalData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/jobs/applications/${appId}/approve-reschedule`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(approvalData)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'เกิดข้อผิดพลาดในการทำรายการ');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message || 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้' };
+    }
+  }
+
   // ✅ ดูผู้สมัครทุกตำแหน่ง (HR/Admin only)
   async getAllApplicants(params = {}) {
     try {

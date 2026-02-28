@@ -67,6 +67,18 @@ const ApplicantReview = () => {
     const [reason, setReason] = useState('');
     const [expandedId, setExpandedId] = useState(null);
 
+    // Interview Scheduling State
+    const [scheduleModal, setScheduleModal] = useState(null);
+    const [rescheduleModal, setRescheduleModal] = useState(null);
+    const [interviewData, setInterviewData] = useState({
+        interview_date: '',
+        interview_time: '',
+        interview_location: '',
+        interview_method: 'onsite',
+        interview_link: '',
+        interview_note: ''
+    });
+
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
@@ -132,6 +144,81 @@ const ApplicantReview = () => {
 
         setProcessing(null);
         setReason('');
+    };
+
+    // --- Interview Handlers ---
+    const openScheduleModal = (app) => {
+        setScheduleModal(app);
+        setInterviewData({
+            interview_date: '',
+            interview_time: '',
+            interview_location: '',
+            interview_method: 'onsite',
+            interview_link: '',
+            interview_note: ''
+        });
+    };
+
+    const handleScheduleInterview = async (e) => {
+        e.preventDefault();
+        if (!scheduleModal) return;
+        const appId = scheduleModal.id || scheduleModal._id;
+
+        setProcessing(`schedule-${appId}`);
+        const result = await jobService.scheduleInterview(appId, interviewData);
+
+        if (result.success) {
+            showToast('นัดสัมภาษณ์เรียบร้อย', 'success');
+            setScheduleModal(null);
+            loadApplicants();
+        } else {
+            showToast(result.error, 'error');
+        }
+        setProcessing(null);
+    };
+
+    const openRescheduleModal = (app) => {
+        setRescheduleModal(app);
+        setInterviewData({
+            ...interviewData,
+            interview_date: app.interview?.preferred_date || '',
+            interview_time: '',
+            interview_location: app.interview?.location || '',
+            interview_method: app.interview?.method || 'onsite',
+            interview_link: app.interview?.link || ''
+        });
+    };
+
+    const handleApproveReschedule = async (action) => {
+        if (!rescheduleModal) return;
+        const appId = rescheduleModal.id || rescheduleModal._id;
+
+        setProcessing(`reschedule-${appId}`);
+        const data = { action };
+
+        if (action === 'approve') {
+            if (!interviewData.interview_date || !interviewData.interview_time) {
+                showToast('กรุณาระบุวันที่และเวลาใหม่', 'error');
+                setProcessing(null);
+                return;
+            }
+            data.interview_date = interviewData.interview_date;
+            data.interview_time = interviewData.interview_time;
+            data.interview_location = interviewData.interview_location;
+            data.interview_method = interviewData.interview_method;
+            data.interview_link = interviewData.interview_link;
+        }
+
+        const result = await jobService.approveReschedule(appId, data);
+
+        if (result.success) {
+            showToast(action === 'approve' ? 'อนุมัติเลื่อนนัดสัมภาษณ์แล้ว' : 'ไม่อนุมัติการเลื่อนนัด', 'success');
+            setRescheduleModal(null);
+            loadApplicants();
+        } else {
+            showToast(result.error, 'error');
+        }
+        setProcessing(null);
     };
 
     const getStatusConfig = (status) => {
@@ -393,9 +480,41 @@ const ApplicantReview = () => {
                                                         ปฏิเสธ
                                                     </button>
                                                 </>
+                                            ) : app.status === 'accepted' ? (
+                                                <div className="interview-actions">
+                                                    {app.interview ? (
+                                                        <div className={`interview-status-badge ${app.interview.status}`}>
+                                                            {app.interview.status === 'scheduled' && 'นัดสัมภาษณ์แล้ว (รอตอบกลับ)'}
+                                                            {app.interview.status === 'confirmed' && '✅ นักศึกษายืนยันแล้ว'}
+                                                            {app.interview.status === 'rescheduled' && '🔄 เลื่อนนัดแล้ว (รอตอบกลับ)'}
+                                                            {app.interview.status === 'reschedule_requested' && (
+                                                                <button
+                                                                    className="btn-manage-reschedule"
+                                                                    onClick={() => openRescheduleModal(app)}
+                                                                >
+                                                                    ⚠️ ขอเลื่อนนัด (จัดการ)
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            className="btn-schedule-interview"
+                                                            onClick={() => openScheduleModal(app)}
+                                                            disabled={processing === (app.id || app._id)}
+                                                        >
+                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                                                <line x1="16" y1="2" x2="16" y2="6" />
+                                                                <line x1="8" y1="2" x2="8" y2="6" />
+                                                                <line x1="3" y1="10" x2="21" y2="10" />
+                                                            </svg>
+                                                            นัดสัมภาษณ์
+                                                        </button>
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <span className="decided-label">
-                                                    ตัดสินใจแล้ว
+                                                    ปฏิเสธแล้ว
                                                     {app.decided_at && <><br />{formatDate(app.decided_at)}</>}
                                                 </span>
                                             )}
@@ -649,6 +768,129 @@ const ApplicantReview = () => {
                                     : modal.action === 'accepted' ? 'ยืนยันรับ' : 'ยืนยันปฏิเสธ'
                                 }
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Schedule Interview Modal */}
+            {scheduleModal && (
+                <div className="modal-overlay" onClick={() => setScheduleModal(null)}>
+                    <div className="decision-modal schedule-modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <div className="modal-icon schedule">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                    <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3>นัดสัมภาษณ์</h3>
+                                <p className="modal-subtitle">
+                                    {scheduleModal.student_name}
+                                </p>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleScheduleInterview} className="schedule-form">
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>วันที่ *</label>
+                                    <input type="date" required value={interviewData.interview_date} onChange={e => setInterviewData({ ...interviewData, interview_date: e.target.value })} />
+                                </div>
+                                <div className="form-group">
+                                    <label>เวลา *</label>
+                                    <input type="time" required value={interviewData.interview_time} onChange={e => setInterviewData({ ...interviewData, interview_time: e.target.value })} />
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <label>รูปแบบการสัมภาษณ์</label>
+                                <select value={interviewData.interview_method} onChange={e => setInterviewData({ ...interviewData, interview_method: e.target.value })}>
+                                    <option value="onsite">On-site (ที่บริษัท)</option>
+                                    <option value="online">Online</option>
+                                    <option value="phone">Phone</option>
+                                </select>
+                            </div>
+                            {interviewData.interview_method === 'onsite' ? (
+                                <div className="form-group">
+                                    <label>สถานที่</label>
+                                    <input type="text" placeholder="ระบุห้องหรือชั้น..." value={interviewData.interview_location} onChange={e => setInterviewData({ ...interviewData, interview_location: e.target.value })} />
+                                </div>
+                            ) : interviewData.interview_method === 'online' && (
+                                <div className="form-group">
+                                    <label>ลิงก์ประชุม (Google Meet, Zoom, etc.)</label>
+                                    <input type="url" placeholder="https://..." value={interviewData.interview_link} onChange={e => setInterviewData({ ...interviewData, interview_link: e.target.value })} />
+                                </div>
+                            )}
+                            <div className="form-group">
+                                <label>หมายเหตุ / สิ่งที่ต้องเตรียม</label>
+                                <textarea rows={2} placeholder="เช่น เตรียม Resume ตัวจริง..." value={interviewData.interview_note} onChange={e => setInterviewData({ ...interviewData, interview_note: e.target.value })} />
+                            </div>
+
+                            <div className="modal-actions">
+                                <button type="button" className="btn-cancel" onClick={() => setScheduleModal(null)}>ยกเลิก</button>
+                                <button type="submit" className="btn-confirm accept" disabled={processing}>
+                                    {processing ? 'กำลังบันทึก...' : 'ยืนยันการนัดหมาย'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Reschedule Approval Modal */}
+            {rescheduleModal && (
+                <div className="modal-overlay" onClick={() => setRescheduleModal(null)}>
+                    <div className="decision-modal reschedule-modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <div className="modal-icon warning">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2.5">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3>จัดการคำขอเลื่อนนัดสัมภาษณ์</h3>
+                                <p className="modal-subtitle">
+                                    {rescheduleModal.student_name}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="reschedule-info">
+                            <div className="info-box">
+                                <strong>เหตุผลที่ขอเลื่อน:</strong>
+                                <p>{rescheduleModal.interview?.reschedule_reason}</p>
+                            </div>
+                            <div className="info-box">
+                                <strong>วัน/เวลา ที่สะดวก (ตามที่ขอ):</strong>
+                                <p>{rescheduleModal.interview?.preferred_date}</p>
+                            </div>
+                        </div>
+
+                        <div className="schedule-form">
+                            <h4 style={{ margin: '1rem 0 0.5rem', fontSize: '0.9rem', color: '#64748B' }}>กำหนดวันนัดหมายใหม่</h4>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>วันที่ *</label>
+                                    <input type="date" value={interviewData.interview_date} onChange={e => setInterviewData({ ...interviewData, interview_date: e.target.value })} />
+                                </div>
+                                <div className="form-group">
+                                    <label>เวลา *</label>
+                                    <input type="time" value={interviewData.interview_time} onChange={e => setInterviewData({ ...interviewData, interview_time: e.target.value })} />
+                                </div>
+                            </div>
+
+                            <div className="modal-actions">
+                                <button type="button" className="btn-cancel" onClick={() => setRescheduleModal(null)}>ปิด</button>
+                                <button type="button" className="btn-reject" onClick={() => handleApproveReschedule('deny')} disabled={processing}>
+                                    ไม่อนุมัติ (ใช้นัดเดิม)
+                                </button>
+                                <button type="button" className="btn-confirm accept" onClick={() => handleApproveReschedule('approve')} disabled={processing}>
+                                    {processing ? 'กำลังบันทึก...' : 'อนุมัติวันใหม่'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

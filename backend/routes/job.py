@@ -1030,7 +1030,308 @@ async def update_application_status(
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Application not found")
 
+    # --- Add status_history entry for timeline ---
+    await db.applications.update_one(
+        {"_id": ObjectId(app_id)},
+        {"$push": {
+            "status_history": {
+                "status": new_status,
+                "at": datetime.utcnow().isoformat(),
+                "by": current_user["sub"],
+                "reason": reason,
+            }
+        }},
+    )
+
+    # --- Create notification for the student ---
+    try:
+        from services.notification_service import NotificationService
+        notif_svc = NotificationService(db)
+        await notif_svc.create_application_notification(
+            student_id=application.get("student_id", ""),
+            application_id=app_id,
+            job_title=application.get("job_title", "ตำแหน่งงาน"),
+            company_name=application.get("company_name", "บริษัท"),
+            new_status=new_status,
+            hr_reason=reason,
+        )
+    except Exception as notif_err:
+        logger.warning("[Notification] Failed to create: %s", notif_err)
+
     logger.info("[HR] %s %s application %s (reason: %s)",
                 current_user["sub"], new_status, app_id, reason or "none")
 
     return {"message": f"Application {new_status}", "status": new_status}
+
+
+# =============================================================================
+# INTERVIEW SCHEDULING
+# =============================================================================
+
+@router.put("/applications/{app_id}/schedule-interview")
+async def schedule_interview(
+    app_id: str,
+    body: dict,
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+):
+    """HR กำหนดนัดสัมภาษณ์ — วันที่/เวลา/สถานที่/ช่องทาง"""
+    if current_user.get("user_type") not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    if not ObjectId.is_valid(app_id):
+        raise HTTPException(status_code=400, detail="Invalid application ID")
+
+    application = await db.applications.find_one({"_id": ObjectId(app_id)})
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if application.get("status") != "accepted":
+        raise HTTPException(status_code=400, detail="Application must be accepted first")
+
+    interview_date = body.get("interview_date")
+    interview_time = body.get("interview_time")
+    interview_location = body.get("interview_location", "")
+    interview_method = body.get("interview_method", "onsite")
+    interview_link = body.get("interview_link", "")
+    interview_note = body.get("interview_note", "")
+
+    if not interview_date or not interview_time:
+        raise HTTPException(status_code=400, detail="interview_date and interview_time required")
+
+    interview_data = {
+        "interview": {
+            "date": interview_date,
+            "time": interview_time,
+            "location": interview_location,
+            "method": interview_method,
+            "link": interview_link,
+            "note": interview_note,
+            "status": "scheduled",
+            "scheduled_by": current_user["sub"],
+            "scheduled_at": datetime.utcnow().isoformat(),
+            "reschedule_count": 0,
+        }
+    }
+
+    await db.applications.update_one(
+        {"_id": ObjectId(app_id)},
+        {"$set": interview_data},
+    )
+
+    # Add to status_history
+    await db.applications.update_one(
+        {"_id": ObjectId(app_id)},
+        {"$push": {
+            "status_history": {
+                "status": "interview_scheduled",
+                "at": datetime.utcnow().isoformat(),
+                "by": current_user["sub"],
+                "reason": f"นัดสัมภาษณ์ {interview_date} เวลา {interview_time}",
+            }
+        }},
+    )
+
+    # Notification
+    try:
+        from services.notification_service import NotificationService
+        svc = NotificationService(db)
+        await svc.create_application_notification(
+            student_id=application.get("student_id", ""),
+            application_id=app_id,
+            job_title=application.get("job_title", "ตำแหน่งงาน"),
+            company_name=application.get("company_name", "บริษัท"),
+            new_status="interview",
+            hr_reason=f"นัดสัมภาษณ์ {interview_date} เวลา {interview_time} ({interview_method})",
+        )
+    except Exception as e:
+        logger.warning("[Notification] Interview schedule failed: %s", e)
+
+    logger.info("[HR] Scheduled interview for app %s on %s %s", app_id, interview_date, interview_time)
+
+    return {"message": "Interview scheduled", "interview": interview_data["interview"]}
+
+
+@router.put("/applications/{app_id}/interview-response")
+async def interview_response(
+    app_id: str,
+    body: dict,
+    user_id: str = Depends(get_current_user_id),
+    db=Depends(get_database),
+):
+    """Student ยืนยัน/ขอเลื่อนนัดสัมภาษณ์"""
+    if not ObjectId.is_valid(app_id):
+        raise HTTPException(status_code=400, detail="Invalid application ID")
+
+    application = await db.applications.find_one({"_id": ObjectId(app_id)})
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if application.get("student_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not your application")
+
+    interview = application.get("interview")
+    if not interview:
+        raise HTTPException(status_code=400, detail="No interview scheduled")
+
+    action = body.get("action")  # "confirm" or "reschedule"
+
+    if action == "confirm":
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$set": {"interview.status": "confirmed", "interview.confirmed_at": datetime.utcnow().isoformat()}},
+        )
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$push": {"status_history": {
+                "status": "interview_confirmed",
+                "at": datetime.utcnow().isoformat(),
+                "by": user_id,
+                "reason": "นักศึกษายืนยันนัดสัมภาษณ์",
+            }}},
+        )
+        return {"message": "Interview confirmed"}
+
+    elif action == "reschedule":
+        # Check ≥4 days before interview
+        try:
+            interview_dt = datetime.fromisoformat(interview["date"])
+            days_until = (interview_dt - datetime.utcnow()).days
+            if days_until < 4:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"ไม่สามารถขอเลื่อนได้ (เหลือ {days_until} วัน ต้องขอก่อนอย่างน้อย 4 วัน)"
+                )
+        except (ValueError, TypeError):
+            pass  # If date parse fails, allow reschedule
+
+        # Check max 1 reschedule
+        if interview.get("reschedule_count", 0) >= 1:
+            raise HTTPException(status_code=400, detail="ขอเลื่อนได้สูงสุด 1 ครั้ง")
+
+        reschedule_reason = body.get("reason", "")
+        preferred_date = body.get("preferred_date", "")
+
+        if not reschedule_reason:
+            raise HTTPException(status_code=400, detail="กรุณาระบุเหตุผลในการขอเลื่อน")
+
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$set": {
+                "interview.status": "reschedule_requested",
+                "interview.reschedule_reason": reschedule_reason,
+                "interview.preferred_date": preferred_date,
+                "interview.reschedule_requested_at": datetime.utcnow().isoformat(),
+            }},
+        )
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$push": {"status_history": {
+                "status": "reschedule_requested",
+                "at": datetime.utcnow().isoformat(),
+                "by": user_id,
+                "reason": reschedule_reason,
+            }}},
+        )
+
+        return {"message": "Reschedule requested"}
+
+    raise HTTPException(status_code=400, detail="Invalid action. Use 'confirm' or 'reschedule'")
+
+
+@router.put("/applications/{app_id}/approve-reschedule")
+async def approve_reschedule(
+    app_id: str,
+    body: dict,
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+):
+    """HR อนุมัติเลื่อนนัดสัมภาษณ์ — กำหนดวันใหม่"""
+    if current_user.get("user_type") not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    if not ObjectId.is_valid(app_id):
+        raise HTTPException(status_code=400, detail="Invalid application ID")
+
+    application = await db.applications.find_one({"_id": ObjectId(app_id)})
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    interview = application.get("interview")
+    if not interview or interview.get("status") != "reschedule_requested":
+        raise HTTPException(status_code=400, detail="No reschedule request pending")
+
+    action = body.get("action")  # "approve" or "deny"
+
+    if action == "approve":
+        new_date = body.get("interview_date")
+        new_time = body.get("interview_time")
+        if not new_date or not new_time:
+            raise HTTPException(status_code=400, detail="New date and time required")
+
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$set": {
+                "interview.date": new_date,
+                "interview.time": new_time,
+                "interview.location": body.get("interview_location", interview.get("location", "")),
+                "interview.method": body.get("interview_method", interview.get("method", "onsite")),
+                "interview.link": body.get("interview_link", interview.get("link", "")),
+                "interview.status": "rescheduled",
+                "interview.reschedule_count": interview.get("reschedule_count", 0) + 1,
+                "interview.rescheduled_at": datetime.utcnow().isoformat(),
+            }},
+        )
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$push": {"status_history": {
+                "status": "interview_rescheduled",
+                "at": datetime.utcnow().isoformat(),
+                "by": current_user["sub"],
+                "reason": f"เลื่อนเป็น {new_date} เวลา {new_time}",
+            }}},
+        )
+
+        # Notify student
+        try:
+            from services.notification_service import NotificationService
+            svc = NotificationService(db)
+            await svc.create_application_notification(
+                student_id=application.get("student_id", ""),
+                application_id=app_id,
+                job_title=application.get("job_title", "ตำแหน่งงาน"),
+                company_name=application.get("company_name", "บริษัท"),
+                new_status="interview",
+                hr_reason=f"อนุมัติเลื่อนนัด → {new_date} เวลา {new_time}",
+            )
+        except Exception as e:
+            logger.warning("[Notification] Reschedule approve failed: %s", e)
+
+        return {"message": "Reschedule approved"}
+
+    elif action == "deny":
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$set": {
+                "interview.status": "scheduled",
+                "interview.reschedule_count": interview.get("reschedule_count", 0) + 1,
+            }},
+        )
+        # Notify student
+        try:
+            from services.notification_service import NotificationService
+            svc = NotificationService(db)
+            await svc.create_application_notification(
+                student_id=application.get("student_id", ""),
+                application_id=app_id,
+                job_title=application.get("job_title", "ตำแหน่งงาน"),
+                company_name=application.get("company_name", "บริษัท"),
+                new_status="interview",
+                hr_reason="ไม่อนุมัติเลื่อนนัด — กรุณามาตามนัดเดิม",
+            )
+        except Exception as e:
+            logger.warning("[Notification] Reschedule deny failed: %s", e)
+
+        return {"message": "Reschedule denied"}
+
+    raise HTTPException(status_code=400, detail="Invalid action. Use 'approve' or 'deny'")

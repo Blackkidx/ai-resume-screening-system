@@ -257,28 +257,110 @@ async def get_resume_analysis(
 # =============================================================================
 @router.get("/notifications")
 async def get_student_notifications(user_id: str = Depends(get_current_user_id)):
-    """ดูการแจ้งเตือน (เฉพาะ Student)"""
+    """ดูรายการแจ้งเตือนทั้งหมด (เฉพาะ Student)"""
     try:
         db = get_database()
-        user = await verify_student_access(user_id)
-        
-        # ดึงการแจ้งเตือน
-        notifications = await db.notifications.find({
-            "user_id": user["_id"]
-        }).sort("created_at", -1).to_list(length=50)
-        
+        await verify_student_access(user_id)
+
+        from services.notification_service import NotificationService
+        svc = NotificationService(db)
+
+        notifications = await svc.get_notifications(user_id, limit=50)
+        unread_count = await svc.get_unread_count(user_id)
+
         return {
             "notifications": notifications,
-            "unread_count": len([n for n in notifications if not n.get("is_read", False)])
+            "unread_count": unread_count,
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch notifications: {str(e)}"
+            detail=f"Failed to fetch notifications: {str(e)}",
         )
+
+
+@router.get("/notifications/stream")
+async def notification_stream(token: str = ""):
+    """SSE endpoint — real-time notification stream (เฉพาะ Student).
+    Uses query param ?token= because EventSource cannot send Authorization header.
+    """
+    from starlette.responses import StreamingResponse
+    from core.auth import decode_access_token
+    from services.notification_service import sse_event_generator
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required")
+
+    payload = decode_access_token(token)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    await verify_student_access(user_id)
+
+    return StreamingResponse(
+        sse_event_generator(user_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.put("/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Mark notification as read"""
+    try:
+        db = get_database()
+        await verify_student_access(user_id)
+
+        from services.notification_service import NotificationService
+        svc = NotificationService(db)
+
+        success = await svc.mark_as_read(notification_id, user_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Notification not found")
+
+        return {"message": "Marked as read"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to mark notification: {str(e)}",
+        )
+
+
+@router.put("/notifications/read-all")
+async def mark_all_notifications_read(user_id: str = Depends(get_current_user_id)):
+    """Mark all notifications as read"""
+    try:
+        db = get_database()
+        await verify_student_access(user_id)
+
+        from services.notification_service import NotificationService
+        svc = NotificationService(db)
+
+        count = await svc.mark_all_as_read(user_id)
+        return {"message": f"Marked {count} notifications as read", "count": count}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to mark notifications: {str(e)}",
+        )
+
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -287,19 +369,16 @@ def calculate_profile_completeness(user: dict) -> int:
     """คำนวณความสมบูรณ์ของโปรไฟล์ (0-100%)"""
     total_fields = 5
     completed_fields = 0
-    
-    # ข้อมูลพื้นฐานที่ต้องมี
+
     required_fields = ["full_name", "email", "username"]
     optional_fields = ["phone", "profile_image"]
-    
-    # นับข้อมูลพื้นฐาน
+
     for field in required_fields:
         if user.get(field):
             completed_fields += 1
-    
-    # นับข้อมูลเสริม
+
     for field in optional_fields:
         if user.get(field):
             completed_fields += 1
-    
+
     return int((completed_fields / total_fields) * 100)

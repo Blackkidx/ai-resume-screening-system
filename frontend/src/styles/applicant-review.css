@@ -1110,6 +1110,200 @@
     background: linear-gradient(135deg, #DC2626, #EF4444);
 }
 
+/* =============================================================================
+   INTERVIEW SCHEDULING
+   ============================================================================= */
+
+.interview-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.interview-status-badge {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.interview-status-badge.scheduled {
+    background: #EFF6FF;
+    color: #1E40AF;
+    border: 1px solid #BFDBFE;
+}
+
+.interview-status-badge.confirmed {
+    background: #ECFDF5;
+    color: #065F46;
+    border: 1px solid #A7F3D0;
+}
+
+.interview-status-badge.reschedule_requested,
+.interview-status-badge.rescheduled {
+    background: #FFFBEB;
+    color: #92400E;
+    border: 1px solid #FDE68A;
+}
+
+.btn-schedule-interview {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: linear-gradient(135deg, #0284C7, #38BDF8);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s;
+    min-width: 140px;
+}
+
+.btn-schedule-interview:hover {
+    background: linear-gradient(135deg, #0369A1, #0284C7);
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+    transform: translateY(-1px);
+}
+
+.btn-manage-reschedule {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #D97706;
+    background: white;
+    color: #D97706;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-manage-reschedule:hover {
+    background: #FEF3C7;
+}
+
+/* Schedule Modal */
+.decision-modal.schedule-modal,
+.decision-modal.reschedule-modal {
+    max-width: 500px;
+    text-align: left;
+    padding: 24px 28px;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #E2E8F0;
+}
+
+.modal-header h3 {
+    margin: 0 0 4px;
+    text-align: left;
+}
+
+.modal-header .modal-subtitle {
+    margin: 0;
+    text-align: left;
+}
+
+.modal-icon.schedule {
+    background: #E0F2FE;
+    color: #0284C7;
+}
+
+.modal-icon.warning {
+    background: #FEF3C7;
+}
+
+.schedule-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.form-row {
+    display: flex;
+    gap: 16px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 10px 14px;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: #0F172A;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #38BDF8;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+.reschedule-info {
+    background: #F8FAFC;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+    border-left: 3px solid #D97706;
+}
+
+.info-box {
+    margin-bottom: 12px;
+}
+
+.info-box:last-child {
+    margin-bottom: 0;
+}
+
+.info-box strong {
+    display: block;
+    font-size: 0.8rem;
+    color: #64748B;
+    margin-bottom: 4px;
+}
+
+.info-box p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #0F172A;
+    font-weight: 500;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
     .review-container {

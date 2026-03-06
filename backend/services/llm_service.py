@@ -89,14 +89,14 @@ class LLMService:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a resume parser AI. Extract information from resumes and return ONLY valid JSON. Do not include any explanation or markdown formatting."
+                        "content": "You are a fast, strict data extraction API. You MUST output ONLY valid JSON. Do not output any thinking, explanations, or markdown formatting outside the JSON block. If you cannot extract a value like experience_months, just guess or set it to 0."
                     },
                     {
                         "role": "user",
-                        "content": prompt
+                        "content": prompt + "\n\nCRITICAL: OUTPUT ONLY VALID JSON. NO THINKING."
                     }
                 ],
-                temperature=self.temperature,
+                temperature=0.0,
                 max_tokens=self.max_tokens
             )
             
@@ -152,6 +152,14 @@ Extract and return JSON with this exact structure:
     }}
   ],
   "experience_months": 0,
+  "experience_details": [
+    {{
+      "position": "Job title or position",
+      "company": "Company or organization name",
+      "duration": "Duration (e.g., '3 months', 'June 2023 - August 2023')",
+      "description": "Brief description of responsibilities or achievements"
+    }}
+  ],
   "languages": ["Thai", "English", "etc."],
   "certifications": [
     {{
@@ -189,8 +197,9 @@ OTHER RULES:
 3. If information is not found, use empty string "" or empty array []
 4. GPA should be a number (0.0 if not found). GPX means the same as GPA.
 5. experience_months should be total work experience in months (0 if none or fresh graduate)
-6. For Thai resumes, translate field values to English but keep university/skill names as-is
-7. For certifications, extract professional certifications like:
+6. experience_details MUST include all work and internship experiences. If none, return empty array []. Be sure NOT to confuse projects and work experience. Work experience involves working for a company or organization.
+7. For Thai resumes, translate field values to English but keep university/skill names as-is
+8. For certifications, extract professional certifications like:
    - AWS Certified (Cloud Practitioner, Solutions Architect, etc.)
    - Google Cloud Certified, Google Data Analytics, etc.
    - Microsoft Azure Certified, Microsoft Office Specialist, etc.
@@ -244,6 +253,7 @@ OTHER RULES:
             },
             "projects": [],
             "experience_months": 0,
+            "experience_details": [],
             "languages": [],
             "certifications": [],
             "extraction_error": error_message

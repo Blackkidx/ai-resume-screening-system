@@ -151,6 +151,7 @@ class ApplicationCreate(BaseModel):
     cover_letter: Optional[str] = Field(None, max_length=1500)
     portfolio_url: Optional[str] = None
     available_start_date: Optional[str] = None
+    certificate_urls: List[str] = Field(default=[], description="URLs ของใบ Certificate ที่แนบมา")
 
 
 # =============================================================================
@@ -185,9 +186,14 @@ def convert_job_to_requirements(job: dict) -> dict:
     }
 
 
-async def get_resume_features(user_id: str, db) -> Optional[dict]:
+async def get_resume_features(user_id: str, db, has_cert_files: bool = None) -> Optional[dict]:
     """
     ดึง extracted features ของ resume ล่าสุดจาก AI extraction
+
+    Args:
+        user_id: user ID
+        db: database
+        has_cert_files: override cert file status (True/False). If None, auto-detect.
 
     Returns:
         dict ที่มี education, skills, projects, experience_months, ...
@@ -207,6 +213,17 @@ async def get_resume_features(user_id: str, db) -> Optional[dict]:
     # ป้องกัน empty dict — ถือว่ายังไม่มีข้อมูล
     if not features:
         return None
+
+    # Inject has_cert_files flag
+    if has_cert_files is not None:
+        features["has_cert_files"] = has_cert_files
+    else:
+        # Auto-detect: check if any application by this user has cert files
+        cert_app = await db.applications.find_one({
+            "student_id": user_id,
+            "certificate_urls": {"$exists": True, "$ne": []}
+        })
+        features["has_cert_files"] = cert_app is not None
 
     return features
 
@@ -507,10 +524,8 @@ async def get_recommendations(
     db=Depends(get_database),
 ):
     """
-    แนะนำงานที่เหมาะสม (🟢 Green ≥80% / 🟡 Yellow 50-79%)
-
-    ใช้ MatchingService จริง — SBERT semantic matching + weighted scoring 6 มิติ
-    ไม่แสดงงาน 🔴 Red (< 50%)
+    แนะนำงานที่เหมาะสม — AI-first (XGBoost v4 + Rule-based fallback)
+    🟢 Green ≥80% / 🟡 Yellow 50-79% / ไม่แสดง 🔴 Red (<50%)
     """
     resume_features = await get_resume_features(user_id, db)
     if not resume_features:
@@ -523,17 +538,24 @@ async def get_recommendations(
 
     for job in jobs:
         job_requirements = convert_job_to_requirements(job)
-        result = matching_service.calculate_match(resume_features, job_requirements)
+        result = matching_service.calculate_ai_match(resume_features, job_requirements)
+
+        # ใช้ XGBoost score เป็นหลัก, fallback rule-based
+        if result.get("model_available"):
+            score = result["xgboost_score"]
+        else:
+            score = result["overall_score"]
 
         job_data = transform_job_data(job)
-        job_data["ai_match_score"] = normalize_score(result["overall_score"])
+        job_data["ai_match_score"] = normalize_score(score)
+        job_data["ai_method"] = result.get("ai_method", "rule_based")
         job_data["recommendation_reason"] = result["recommendation"]
         job_data["matching_breakdown"] = result["breakdown"]
         job_data["matching_zone"] = result["zone"]
 
-        if result["zone"] == "green":
+        if score >= 80:
             green_jobs.append(job_data)
-        elif result["zone"] == "yellow":
+        elif score >= 50:
             yellow_jobs.append(job_data)
 
     logger.info(
@@ -554,8 +576,7 @@ async def get_not_ready_jobs(
 ):
     """
     งานที่ยังไม่เหมาะสม (🔴 Red < 50%) พร้อม Gap Analysis
-
-    ใช้ MatchingService จริง — วิเคราะห์ว่าขาด skills อะไร พร้อมคำแนะนำ
+    AI-first — XGBoost v4 + Rule-based fallback
     """
     resume_features = await get_resume_features(user_id, db)
     if not resume_features:
@@ -567,15 +588,20 @@ async def get_not_ready_jobs(
 
     for job in jobs:
         job_requirements = convert_job_to_requirements(job)
-        result = matching_service.calculate_match(resume_features, job_requirements)
+        result = matching_service.calculate_ai_match(resume_features, job_requirements)
 
-        if result["zone"] != "red":
+        # ใช้ XGBoost score เป็นหลัก
+        if result.get("model_available"):
+            score = result["xgboost_score"]
+        else:
+            score = result["overall_score"]
+
+        if score >= 50:
             continue
 
-        # Gap Analysis — วิเคราะห์ว่าขาดอะไรบ้าง
+        # Gap Analysis
         gap_result = matching_service.get_gap_analysis(resume_features, job_requirements)
 
-        # รวม missing items จากทุก gap area → flat list
         missing_skills = []
         for gap in gap_result.get("gaps", []):
             if "missing" in gap:
@@ -585,7 +611,7 @@ async def get_not_ready_jobs(
             "job_id": str(job["_id"]),
             "job_title": job.get("title", "Unknown"),
             "company_name": job.get("company_name", "Unknown"),
-            "score": normalize_score(result["overall_score"]),
+            "score": normalize_score(score),
             "missing_skills": missing_skills[:5],
             "recommendations": gap_result.get("recommendations", []),
             "breakdown": result["breakdown"],
@@ -849,13 +875,20 @@ async def apply_job(
             detail="PHONE_REQUIRED"
         )
 
-    # คำนวณ AI score ด้วย MatchingService
-    resume_features = await get_resume_features(user_id, db) or {}
+    # คำนวณ AI score — XGBoost v4 เป็นหลัก, fallback rule-based
+    # Inject has_cert_files based on this application's certificate_urls
+    has_cert_files = bool(application.certificate_urls and len(application.certificate_urls) > 0)
+    resume_features = await get_resume_features(user_id, db, has_cert_files=has_cert_files) or {}
     job_requirements = convert_job_to_requirements(job)
-    match_result = matching_service.calculate_match(resume_features, job_requirements)
+    match_result = matching_service.calculate_ai_match(resume_features, job_requirements)
 
-    ai_score = normalize_score(match_result["overall_score"])
+    # ใช้ XGBoost score เป็นหลัก
+    if match_result.get("model_available"):
+        ai_score = normalize_score(match_result["xgboost_score"])
+    else:
+        ai_score = normalize_score(match_result["overall_score"])
     ai_feedback = match_result["recommendation"]
+    ai_method = match_result.get("ai_method", "rule_based")
 
     # ดึง resume file path สำหรับ HR ดู PDF
     resume_doc = await db.resumes.find_one(
@@ -866,7 +899,6 @@ async def apply_job(
     if resume_doc:
         fp = resume_doc.get("file_path", "")
         if fp:
-            # file_path = "uploads/resumes/xxx.pdf" → URL = "/uploads/resumes/xxx.pdf"
             resume_file_url = "/" + fp.replace("\\", "/")
 
     app_doc = {
@@ -880,9 +912,14 @@ async def apply_job(
         "student_email": user.get("email", ""),
         "resume_data": resume_features,
         "resume_file_url": resume_file_url,
+        "certificate_urls": application.certificate_urls,
         "status": "pending",
         "ai_score": ai_score,
+        "ai_method": ai_method,
         "ai_feedback": ai_feedback,
+        "xgboost_score": match_result.get("xgboost_score"),
+        "xgboost_decision": match_result.get("xgboost_decision"),
+        "xgboost_probability": match_result.get("xgboost_probability"),
         "matching_breakdown": match_result.get("breakdown", {}),
         "matching_zone": match_result.get("zone", ""),
         "submitted_at": datetime.utcnow(),
@@ -1021,6 +1058,18 @@ async def update_application_status(
     # ถ้ามี matching_breakdown จาก apply_job ให้ใช้แทน
     if application.get("matching_breakdown"):
         update_data["ai_breakdown_at_decision"] = application["matching_breakdown"]
+
+    # Save 14 granular features for XGBoost v4 training
+    try:
+        job_doc = await db.jobs.find_one({"_id": ObjectId(application.get("job_id"))})
+        if resume_data and job_doc:
+            from services.matching_service import MatchingService
+            matcher = MatchingService()
+            job_req = convert_job_to_requirements(job_doc)
+            xgb_features = matcher.extract_xgboost_features(resume_data, job_req)
+            update_data["xgboost_features_at_decision"] = xgb_features
+    except Exception as feat_err:
+        logger.warning("[HR] Failed to extract XGBoost features: %s", feat_err)
 
     result = await db.applications.update_one(
         {"_id": ObjectId(app_id)},

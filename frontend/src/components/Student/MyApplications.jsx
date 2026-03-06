@@ -469,6 +469,28 @@ const MyApplications = () => {
                                             </div>
                                         )}
 
+                                        {/* Experience Details */}
+                                        {app.resume_data?.experience_details && app.resume_data.experience_details.length > 0 && (
+                                            <div className="app-detail-section">
+                                                <h4 className="detail-section-title">
+                                                    <BriefcaseIcon />
+                                                    ประสบการณ์การทำงาน
+                                                </h4>
+                                                <div className="experience-details-list">
+                                                    {app.resume_data.experience_details.map((exp, i) => (
+                                                        <div key={i} className="experience-item" style={{ marginBottom: i < app.resume_data.experience_details.length - 1 ? '12px' : '0', paddingBottom: i < app.resume_data.experience_details.length - 1 ? '12px' : '0', borderBottom: i < app.resume_data.experience_details.length - 1 ? '1px solid #e2e8f0' : 'none' }}>
+                                                            <div style={{ fontWeight: '600', color: '#1e293b' }}>{exp.position}</div>
+                                                            <div style={{ fontSize: '0.9rem', color: '#475569', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                                <span>{exp.company}</span>
+                                                                <span>{exp.duration}</span>
+                                                            </div>
+                                                            {exp.description && <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '4px 0 0 0' }}>{exp.description}</p>}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* HR Reason */}
                                         {app.hr_reason && (
                                             <div className="app-detail-section">

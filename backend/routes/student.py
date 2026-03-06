@@ -75,7 +75,7 @@ async def get_student_dashboard(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch dashboard data: {str(e)}"
+            detail="Failed to fetch dashboard data"
         )
 
 # =============================================================================
@@ -98,7 +98,7 @@ async def upload_resume(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload resume: {str(e)}"
+            detail="Failed to upload resume"
         )
 
 @router.get("/resume/history")
@@ -121,7 +121,7 @@ async def get_resume_history(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch resume history: {str(e)}"
+            detail="Failed to fetch resume history"
         )
 
 # =============================================================================
@@ -147,7 +147,7 @@ async def get_available_jobs(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch job positions: {str(e)}"
+            detail="Failed to fetch job positions"
         )
 
 @router.post("/applications")
@@ -167,7 +167,7 @@ async def apply_for_job(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to apply for job: {str(e)}"
+            detail="Failed to apply for job"
         )
 
 @router.get("/applications/results")
@@ -190,7 +190,7 @@ async def get_application_results(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch application results: {str(e)}"
+            detail="Failed to fetch application results"
         )
 
 # =============================================================================
@@ -213,7 +213,7 @@ async def get_matching_score(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to calculate matching score: {str(e)}"
+            detail="Failed to calculate matching score"
         )
 
 @router.get("/resume/{resume_id}/analysis")
@@ -249,7 +249,7 @@ async def get_resume_analysis(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to analyze resume: {str(e)}"
+            detail="Failed to analyze resume"
         )
 
 # =============================================================================
@@ -278,7 +278,7 @@ async def get_student_notifications(user_id: str = Depends(get_current_user_id))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch notifications: {str(e)}",
+            detail="Failed to fetch notifications",
         )
 
 
@@ -336,7 +336,7 @@ async def mark_notification_read(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to mark notification: {str(e)}",
+            detail="Failed to mark notification",
         )
 
 
@@ -358,7 +358,7 @@ async def mark_all_notifications_read(user_id: str = Depends(get_current_user_id
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to mark notifications: {str(e)}",
+            detail="Failed to mark notifications",
         )
 
 

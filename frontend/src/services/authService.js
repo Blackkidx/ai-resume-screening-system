@@ -181,11 +181,27 @@ class AuthService {
     }
   }
 
-  // ✅ ตรวจสอบว่า login อยู่หรือไม่
+  // ตรวจสอบว่า token หมดอายุหรือยัง
+  isTokenExpired(token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (!payload.exp) return false;
+      return Date.now() >= payload.exp * 1000;
+    } catch {
+      return true;
+    }
+  }
+
+  // ✅ ตรวจสอบว่า login อยู่หรือไม่ + เช็ค token expiry
   isAuthenticated() {
     const token = this.getToken();
     const user = this.getCurrentUser();
-    return token && user;
+    if (!token || !user) return false;
+    if (this.isTokenExpired(token)) {
+      this.removeToken();
+      return false;
+    }
+    return true;
   }
 
   // ✅ เปลี่ยนรหัสผ่าน

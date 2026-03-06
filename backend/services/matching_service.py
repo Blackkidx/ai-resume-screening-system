@@ -33,6 +33,55 @@ except ImportError:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ─────────────────────────────────────────────────────────────
+# 🧠 Soft Skills → Job Category Mapping (for QA, PM, etc.)
+# ─────────────────────────────────────────────────────────────
+SOFT_SKILLS_MAP = {
+    "qa": ["attention to detail", "analytical", "problem solving", "critical thinking",
+           "bug", "testing", "quality", "detail-oriented", "investigation"],
+    "tester": ["attention to detail", "analytical", "problem solving", "critical thinking",
+              "bug", "testing", "quality", "detail-oriented"],
+    "data": ["analytical", "critical thinking", "problem solving", "statistics",
+            "data-driven", "research", "attention to detail"],
+    "security": ["analytical", "problem solving", "monitoring", "incident",
+                "investigation", "attention to detail", "critical thinking"],
+    "cyber": ["analytical", "problem solving", "monitoring", "incident",
+             "investigation", "attention to detail"],
+    "network": ["problem solving", "troubleshooting", "monitoring",
+               "analytical", "documentation"],
+    "mobile": ["creativity", "ui/ux", "problem solving", "user experience",
+              "design thinking", "attention to detail"],
+    "frontend": ["creativity", "ui/ux", "attention to detail", "design",
+                "problem solving", "user experience"],
+    "backend": ["problem solving", "analytical", "system design",
+               "debugging", "architecture"],
+    "full-stack": ["problem solving", "adaptability", "analytical",
+                  "communication", "teamwork"],
+    "fullstack": ["problem solving", "adaptability", "analytical",
+                 "communication", "teamwork"],
+}
+
+# 📜 Cert → Domain Mapping
+CERT_DOMAIN_MAP = {
+    "comptia security": ["security", "cyber", "network"],
+    "security+": ["security", "cyber", "network"],
+    "ceh": ["security", "cyber"],
+    "cissp": ["security", "cyber"],
+    "ccna": ["network", "security", "cyber"],
+    "ccnp": ["network", "security"],
+    "aws": ["backend", "full-stack", "fullstack", "data"],
+    "azure": ["backend", "full-stack", "fullstack", "data"],
+    "gcp": ["backend", "full-stack", "fullstack", "data"],
+    "oracle": ["backend", "data", "full-stack"],
+    "istqb": ["qa", "tester"],
+    "scrum": ["full-stack", "fullstack", "backend", "frontend", "mobile", "qa"],
+    "agile": ["full-stack", "fullstack", "backend", "frontend", "mobile", "qa"],
+    "google analytics": ["data", "frontend"],
+    "tensorflow": ["data", "backend"],
+    "cabling": ["network"],
+    "fiber": ["network"],
+}
+
 
 class MatchingService:
     """
@@ -73,6 +122,92 @@ class MatchingService:
     
     # Fields considered similar to IT/CS
     RELATED_KEYWORDS = ["computer", "engineering", "technology", "software", "data", "digital"]
+
+    # ─── Skill Aliases (fuzzy matching) ───
+    # canonical_name → [all variations]
+    SKILL_ALIASES = {
+        "react": ["react", "reactjs", "react.js", "react js"],
+        "nodejs": ["node.js", "nodejs", "node js", "node"],
+        "nextjs": ["next.js", "nextjs", "next js", "next"],
+        "vuejs": ["vue.js", "vuejs", "vue js", "vue"],
+        "angular": ["angular", "angularjs", "angular.js"],
+        "expressjs": ["express", "expressjs", "express.js"],
+        "javascript": ["javascript", "js", "java script"],
+        "typescript": ["typescript", "ts"],
+        "python": ["python", "python3", "python 3"],
+        "java": ["java"],
+        "csharp": ["c#", "csharp", "c sharp"],
+        "cpp": ["c++", "cpp", "c plus plus"],
+        "c": ["c language", "c programming"],
+        "golang": ["go", "golang"],
+        "mongodb": ["mongodb", "mongo", "mongo db"],
+        "mysql": ["mysql", "my sql"],
+        "postgresql": ["postgresql", "postgres", "psql"],
+        "sql": ["sql"],
+        "nosql": ["nosql", "no sql", "no-sql"],
+        "firebase": ["firebase"],
+        "docker": ["docker"],
+        "kubernetes": ["kubernetes", "k8s"],
+        "aws": ["aws", "amazon web services"],
+        "azure": ["azure", "microsoft azure"],
+        "gcp": ["gcp", "google cloud", "google cloud platform"],
+        "git": ["git"],
+        "github": ["github"],
+        "linux": ["linux", "ubuntu", "centos", "debian"],
+        "html": ["html", "html5"],
+        "css": ["css", "css3"],
+        "tailwind": ["tailwind", "tailwindcss", "tailwind css"],
+        "bootstrap": ["bootstrap"],
+        "flutter": ["flutter"],
+        "dart": ["dart"],
+        "swift": ["swift"],
+        "kotlin": ["kotlin"],
+        "reactnative": ["react native", "react-native", "rn"],
+        "figma": ["figma"],
+        "photoshop": ["photoshop", "adobe photoshop"],
+        "illustrator": ["illustrator", "adobe illustrator"],
+        "powerbi": ["power bi", "powerbi", "power-bi"],
+        "tableau": ["tableau"],
+        "excel": ["excel", "microsoft excel", "ms excel"],
+        "network": ["network", "networking", "computer network"],
+        "firewall": ["firewall", "firewalls"],
+        "cybersecurity": ["cybersecurity", "cyber security", "information security", "infosec"],
+        "tcpip": ["tcp/ip", "tcpip", "tcp ip"],
+        "ccna": ["ccna", "cisco ccna"],
+        "comptia": ["comptia", "comptia security+", "security+"],
+        "wireshark": ["wireshark"],
+        "pandas": ["pandas"],
+        "numpy": ["numpy"],
+        "tensorflow": ["tensorflow", "tf"],
+        "pytorch": ["pytorch"],
+        "machinelearning": ["machine learning", "ml"],
+        "deeplearning": ["deep learning", "dl"],
+        "statistics": ["statistics", "stat", "stats"],
+        "fastapi": ["fastapi", "fast api"],
+        "django": ["django"],
+        "flask": ["flask"],
+        "laravel": ["laravel"],
+        "php": ["php"],
+        "ruby": ["ruby"],
+        "rails": ["rails", "ruby on rails"],
+        "restapi": ["rest api", "restful", "rest", "restful api"],
+        "graphql": ["graphql", "graph ql"],
+    }
+
+    @staticmethod
+    def _normalize_skill(skill: str) -> str:
+        """Normalize a skill name to its canonical form."""
+        s = skill.lower().strip().replace("-", " ").replace("_", " ")
+        # Remove trailing version numbers like "3.x"
+        for alias_key, variations in MatchingService.SKILL_ALIASES.items():
+            if s in variations or s == alias_key:
+                return alias_key
+        return s
+
+    @staticmethod
+    def _normalize_skills(skills: list) -> list:
+        """Normalize a list of skills."""
+        return [MatchingService._normalize_skill(s) for s in skills if s]
     
     def __init__(self, weights: Optional[Dict[str, float]] = None):
         """
@@ -179,13 +314,17 @@ class MatchingService:
             logger.info("[MatchingService] No skills in resume - returning 0%")
             return 0.0
         
-        # Normalize skills (lowercase)
+        # Normalize skills (fuzzy aliases)
+        resume_skills_norm = self._normalize_skills(all_resume_skills)
+        job_skills_norm = self._normalize_skills(job_skills)
+        
+        # Also keep lowercase for SBERT fallback
         resume_skills_lower = [s.lower().strip() for s in all_resume_skills if s]
         job_skills_lower = [s.lower().strip() for s in job_skills if s]
         
-        # Calculate exact match score (60%)
-        exact_matches = sum(1 for skill in job_skills_lower if skill in resume_skills_lower)
-        exact_score = (exact_matches / len(job_skills_lower)) * 100
+        # Calculate exact match score (60%) — using normalized aliases
+        exact_matches = sum(1 for skill in job_skills_norm if skill in resume_skills_norm)
+        exact_score = (exact_matches / len(job_skills_norm)) * 100
         
         logger.info(f"[MatchingService] Exact matches: {exact_matches}/{len(job_skills_lower)}")
         
@@ -393,10 +532,10 @@ class MatchingService:
         relevant_count = 0
         for project in projects:
             project_techs = project.get("technologies", [])
-            project_techs_lower = [t.lower() for t in project_techs if t]
+            project_techs_norm = self._normalize_skills(project_techs)
             
-            # Check if any project technology matches job skills
-            if any(tech in job_skills_lower for tech in project_techs_lower):
+            # Check if any project technology matches job skills (fuzzy)
+            if any(tech in job_skills_lower for tech in project_techs_norm):
                 relevant_count += 1
                 continue
             
@@ -425,14 +564,16 @@ class MatchingService:
         """
         📜 คำนวณคะแนน Certification (10% of total)
         
-        Scoring:
-        - Has required cert = 100%
-        - Has preferred cert = 70%
-        - Has other certs = 40%
-        - No certs (no requirement) = 100%
-        - No certs (required) = 0%
+        2-Tier Scoring:
+        - มี cert + แนบไฟล์  → คะแนนเต็ม (verified)
+        - มี cert ใน resume text แต่ไม่แนบ → คะแนน x0.5 (unverified)
+        - ไม่มี cert เลย → 0%
         """
         logger.info("[MatchingService] Calculating certification score...")
+        
+        has_cert_files = resume_features.get("has_cert_files", False)
+        # Multiplier: 1.0 if files attached, 0.5 if only in resume text
+        cert_multiplier = 1.0 if has_cert_files else 0.5
         
         resume_certs = resume_features.get("certifications", [])
         required_certs = job_requirements.get("required_certifications", [])
@@ -446,14 +587,22 @@ class MatchingService:
         required_certs_lower = [c.lower() for c in required_certs if c]
         preferred_certs_lower = [c.lower() for c in preferred_certs if c]
         
-        # No certification requirement
+        # No certs at all → 0%
+        if not resume_cert_names:
+            if required_certs_lower:
+                logger.info("[MatchingService] Required cert missing, no certs = 0%")
+                return 0.0
+            logger.info("[MatchingService] No certs, no req = 0%")
+            return 0.0
+        
+        verified_tag = "verified" if has_cert_files else "unverified"
+        
+        # Has certs — check relevance
+        # No certification requirement → bonus for having certs
         if not required_certs_lower and not preferred_certs_lower:
-            if resume_cert_names:
-                logger.info(f"[MatchingService] Has certs, no req = 100%")
-                return 100.0
-            else:
-                logger.info(f"[MatchingService] No certs, no req = 100%")
-                return 100.0
+            score = 100.0 * cert_multiplier
+            logger.info(f"[MatchingService] Has certs ({verified_tag}), no req = {score}%")
+            return score
         
         # Check for required certifications
         if required_certs_lower:
@@ -462,11 +611,9 @@ class MatchingService:
                 for required in required_certs_lower
             )
             if has_required:
-                logger.info(f"[MatchingService] Has required cert = 100%")
-                return 100.0
-            elif not resume_cert_names:
-                logger.info(f"[MatchingService] Required cert missing = 0%")
-                return 0.0
+                score = 100.0 * cert_multiplier
+                logger.info(f"[MatchingService] Has required cert ({verified_tag}) = {score}%")
+                return score
         
         # Check for preferred certifications
         if preferred_certs_lower:
@@ -475,17 +622,14 @@ class MatchingService:
                 for preferred in preferred_certs_lower
             )
             if has_preferred:
-                logger.info(f"[MatchingService] Has preferred cert = 70%")
-                return 70.0
+                score = 70.0 * cert_multiplier
+                logger.info(f"[MatchingService] Has preferred cert ({verified_tag}) = {score}%")
+                return score
         
-        # Has other certifications
-        if resume_cert_names:
-            logger.info(f"[MatchingService] Has other certs = 40%")
-            return 40.0
-        
-        # No certs when preferred (not required)
-        logger.info(f"[MatchingService] No certs, preferred missing = 50%")
-        return 50.0
+        # Has other certifications (not matching required/preferred)
+        score = 40.0 * cert_multiplier
+        logger.info(f"[MatchingService] Has other certs ({verified_tag}) = {score}%")
+        return score
     
     def _calculate_gpa_score(
         self, 
@@ -663,6 +807,125 @@ class MatchingService:
         }
 
     # ─────────────────────────────────────────────────────────────
+    # 🤖 XGBoost Feature Extraction (14 granular features)
+    # ─────────────────────────────────────────────────────────────
+    def extract_xgboost_features(
+        self,
+        resume_features: Dict[str, Any],
+        job_requirements: Dict[str, Any],
+    ) -> Dict[str, float]:
+        """Extract 16 granular features for XGBoost v4.2 model."""
+        skills_data = resume_features.get("skills", {})
+        tech_skills = skills_data.get("technical_skills", [])
+        soft_skills = skills_data.get("soft_skills", [])
+
+        job_skills = job_requirements.get("skills_required", [])
+        job_skills_norm = self._normalize_skills(job_skills)
+        resume_skills_norm = self._normalize_skills(tech_skills + soft_skills)
+
+        # Skills matching (fuzzy via normalization)
+        exact_matches = sum(1 for s in job_skills_norm if s in resume_skills_norm)
+        skills_match_ratio = exact_matches / len(job_skills_norm) if job_skills_norm else 0.0
+
+        # Projects — reuse counting logic
+        projects = resume_features.get("projects", [])
+        relevant_count = 0
+        for proj in projects:
+            proj_techs = self._normalize_skills(proj.get("technologies", []))
+            proj_text = f"{proj.get('name', '')} {proj.get('description', '')}".lower()
+            if any(t in job_skills_norm for t in proj_techs) or any(s in proj_text for s in job_skills_norm):
+                relevant_count += 1
+
+        # GPA
+        education = resume_features.get("education", {})
+        gpa_value = 0.0
+        try:
+            gpa_value = float(education.get("gpa", 0)) or 0.0
+        except (ValueError, TypeError):
+            pass
+        has_gpa = 1 if gpa_value > 0 else 0
+        min_gpa = float(job_requirements.get("min_gpa", 0) or 0)
+        gpa_below_min = 1 if (min_gpa > 0 and gpa_value < min_gpa) else 0
+        gpa_gap = round(gpa_value - min_gpa, 2) if min_gpa > 0 else round(gpa_value - 2.5, 2)
+
+        # Major
+        major_score = self._calculate_major_score(resume_features, job_requirements) / 100.0
+
+        # Certifications
+        has_cert_files = resume_features.get("has_cert_files", False)
+        certs = resume_features.get("certifications", [])
+        cert_names = [
+            (c.get("name", "") if isinstance(c, dict) else str(c)).lower()
+            for c in certs if c
+        ]
+        has_cert = 1 if cert_names else 0
+
+        # Cert-job relevance — match cert domain to job category
+        cert_job_relevance = 0
+        if cert_names:
+            job_title = job_requirements.get("title", "").lower()
+            # Determine job category from title
+            job_cats = [cat for cat in CERT_DOMAIN_MAP.values() for _ in [None]]  # unused, just for clarity
+            for cert_name in cert_names:
+                for cert_keyword, domains in CERT_DOMAIN_MAP.items():
+                    if cert_keyword in cert_name:
+                        if any(d in job_title for d in domains):
+                            cert_job_relevance = 1
+                            break
+                if cert_job_relevance:
+                    break
+
+        # Soft skills matching — keyword map per job category
+        soft_skills_match_ratio = 0.0
+        if soft_skills:
+            job_title_lower = job_requirements.get("title", "").lower()
+            target_soft_skills = []
+            for cat_key, cat_skills in SOFT_SKILLS_MAP.items():
+                if cat_key in job_title_lower:
+                    target_soft_skills.extend(cat_skills)
+            if target_soft_skills:
+                target_soft_skills = list(set(target_soft_skills))
+                resume_soft_lower = [s.lower() for s in soft_skills]
+                matches = sum(
+                    1 for target in target_soft_skills
+                    if any(target in rs for rs in resume_soft_lower)
+                )
+                soft_skills_match_ratio = round(matches / len(target_soft_skills), 4)
+
+        # Experience
+        exp_months = resume_features.get("experience_months", 0) or 0
+        has_relevant_exp = 1 if exp_months > 0 else 0
+
+        # Resume completeness
+        sections = ["education", "skills", "projects", "certifications"]
+        filled = sum(1 for s in sections if resume_features.get(s))
+        resume_completeness = round(filled / len(sections), 2)
+
+        # Skill focus ratio — how focused this student's skillset is on THIS job
+        total_skills_count = len(tech_skills)
+        skill_focus_ratio = round(exact_matches / total_skills_count, 4) if total_skills_count > 0 else 0.0
+
+        return {
+            "skills_match_ratio": round(skills_match_ratio, 4),
+            "skills_match_count": exact_matches,
+            "total_skills": total_skills_count,
+            "major_match_score": round(major_score, 2),
+            "relevant_projects": relevant_count,
+            "total_projects": len(projects),
+            "gpa_value": round(gpa_value, 2),
+            "has_gpa": has_gpa,
+            "has_relevant_exp": has_relevant_exp,
+            "has_cert": has_cert,
+            "soft_skills_count": len(soft_skills),
+            "resume_completeness": resume_completeness,
+            "gpa_below_min": gpa_below_min,
+            "cert_job_relevance": cert_job_relevance,
+            "gpa_gap": gpa_gap,
+            "skill_focus_ratio": skill_focus_ratio,
+            "soft_skills_match_ratio": soft_skills_match_ratio,
+        }
+
+    # ─────────────────────────────────────────────────────────────
     # 🤖 AI-First Matching — XGBoost เป็น primary, Rule-based เป็น fallback
     # ─────────────────────────────────────────────────────────────
     def calculate_ai_match(
@@ -674,25 +937,20 @@ class MatchingService:
         🤖 AI-first matching: XGBoost → fallback Rule-based
 
         1. คำนวณ rule-based score (เหมือนเดิม)
-        2. ถ้ามี XGBoost model → ใช้ XGBoost เป็น AI หลัก
-        3. ถ้าไม่มี → ใช้ rule-based เหมือนเดิม
-
-        Returns:
-            Dict with rule-based result + XGBoost result (if available)
+        2. ถ้ามี XGBoost model → ใช้ XGBoost + 14 granular features
+        3. ถ้าไม่มี → fallback rule-based
         """
-        # Step 1: Rule-based score (เรียก method เดิม — ไม่แก้)
         rule_result = self.calculate_match(resume_features, job_requirements)
 
-        # Step 2: ลอง XGBoost
         try:
             from services.xgboost_service import XGBoostService
             xgboost_service = XGBoostService.get_instance()
-            xgb_result = xgboost_service.predict(rule_result["breakdown"])
+            xgb_features = self.extract_xgboost_features(resume_features, job_requirements)
+            xgb_result = xgboost_service.predict(xgb_features)
         except Exception as e:
             logger.warning(f"[MatchingService] XGBoost unavailable: {e}")
             xgb_result = {"model_available": False}
 
-        # Step 3: Merge results
         if xgb_result.get("model_available"):
             return {
                 **rule_result,
@@ -703,12 +961,12 @@ class MatchingService:
                 "xgboost_probability": xgb_result["xgboost_probability"],
                 "model_available": True,
             }
-        else:
-            return {
-                **rule_result,
-                "ai_method": "rule_based",
-                "model_available": False,
-            }
+
+        return {
+            **rule_result,
+            "ai_method": "rule_based",
+            "model_available": False,
+        }
 
 
 # =============================================================================

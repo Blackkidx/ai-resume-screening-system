@@ -5,6 +5,7 @@ from pydantic import BaseModel, EmailStr, validator
 from datetime import datetime
 from typing import Optional, List  # ⭐ เพิ่ม List ตรงนี้
 from enum import Enum
+import re
 
 # =============================================================================
 # ENUMS 🏷️
@@ -38,8 +39,14 @@ class UserRegisterRequest(BaseModel):
     
     @validator('password')
     def password_must_be_strong(cls, v):
-        if len(v) < 6:
-            raise ValueError('Password must be at least 6 characters')
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters')
+        if not re.search(r"[A-Z]", v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r"[a-z]", v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r"\d", v):
+            raise ValueError('Password must contain at least one number')
         return v
 
 class UserLoginRequest(BaseModel):
@@ -77,8 +84,14 @@ class ChangePasswordRequest(BaseModel):
     
     @validator('new_password')
     def password_must_be_strong(cls, v):
-        if len(v) < 6:
-            raise ValueError('Password must be at least 6 characters')
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters')
+        if not re.search(r"[A-Z]", v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r"[a-z]", v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r"\d", v):
+            raise ValueError('Password must contain at least one number')
         return v
 
 # =============================================================================

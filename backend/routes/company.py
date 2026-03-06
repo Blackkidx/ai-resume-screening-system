@@ -80,7 +80,7 @@ async def create_company(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create company: {str(e)}"
+            detail="Failed to create company"
         )
 
 @router.get("", response_model=List[CompanyResponse])
@@ -164,7 +164,7 @@ async def get_companies(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch companies: {str(e)}"
+            detail="Failed to fetch companies"
         )
 
 @router.get("/{company_id}", response_model=CompanyResponse)
@@ -229,7 +229,7 @@ async def get_company_by_id(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch company: {str(e)}"
+            detail="Failed to fetch company"
         )
 
 @router.put("/{company_id}", response_model=CompanyResponse)
@@ -322,7 +322,7 @@ async def update_company(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update company: {str(e)}"
+            detail="Failed to update company"
         )
 
 @router.delete("/{company_id}")
@@ -359,7 +359,7 @@ async def delete_company(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete company: {str(e)}"
+            detail="Failed to delete company"
         )
 
 # =============================================================================
@@ -430,7 +430,7 @@ async def get_company_hr_users(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch company HR users: {str(e)}"
+            detail="Failed to fetch company HR users"
         )
 
 @router.post("/{company_id}/hr")
@@ -525,7 +525,7 @@ async def assign_hr_to_company(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to assign HR to company: {str(e)}"
+            detail="Failed to assign HR to company"
         )
 
 @router.delete("/{company_id}/hr/{user_id}")
@@ -593,7 +593,7 @@ async def remove_hr_from_company(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to remove HR from company: {str(e)}"
+            detail="Failed to remove HR from company"
         )
 
 # =============================================================================
@@ -659,5 +659,5 @@ async def get_my_company_info(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch company info: {str(e)}"
+            detail="Failed to fetch company info"
         )

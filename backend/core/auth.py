@@ -2,6 +2,8 @@
 # 📋 AUTHENTICATION UTILITIES
 # =============================================================================
 import os
+import secrets
+import warnings
 import hashlib  # ⭐ เพิ่มบรรทัดนี้สำหรับแก้ปัญหา bcrypt 72 bytes
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
@@ -16,15 +18,32 @@ load_dotenv()
 # =============================================================================
 # CONFIGURATION 📊
 # =============================================================================
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "ai-resume-secret-key-2025-super-secure-jwt-token")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY or SECRET_KEY == "ai-resume-secret-key-2025-super-secure-jwt-token":
+    warnings.warn("JWT_SECRET_KEY is not set securely! Generating a random 32-byte key for this session. Tokens will invalidate on restart. Set a strong JWT_SECRET_KEY in production.")
+    SECRET_KEY = secrets.token_hex(32)
+
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "120"))
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # HTTP Bearer for token extraction
 security = HTTPBearer()
+
+# =============================================================================
+# TOKEN BLACKLIST (In-Memory) 🚫
+# =============================================================================
+_token_blacklist: set[str] = set()
+
+def blacklist_token(token: str) -> None:
+    """เพิ่ม token เข้า blacklist เมื่อ logout"""
+    _token_blacklist.add(token)
+
+def is_token_blacklisted(token: str) -> bool:
+    """ตรวจสอบว่า token อยู่ใน blacklist หรือไม่"""
+    return token in _token_blacklist
 
 # =============================================================================
 # PASSWORD FUNCTIONS 🔒 (แก้ไขแล้ว)
@@ -93,6 +112,12 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
 
 def decode_access_token(token: str) -> Dict[str, Any]:
     """ถอดรหัส JWT token"""
+    if is_token_blacklisted(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload

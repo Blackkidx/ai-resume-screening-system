@@ -248,7 +248,7 @@ async def calculate_match_score(
         logger.error(f"[Matching API] Error: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error calculating match score: {str(e)}"
+            detail="Error calculating match score."
         )
 
 
@@ -368,7 +368,7 @@ async def get_recommendations(
         logger.error(f"[Matching API] Error: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error getting recommendations: {str(e)}"
+            detail="Error getting recommendations."
         )
 
 
@@ -462,7 +462,7 @@ async def get_gap_analysis(
         logger.error(f"[Matching API] Error: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error getting gap analysis: {str(e)}"
+            detail="Error getting gap analysis."
         )
 
 

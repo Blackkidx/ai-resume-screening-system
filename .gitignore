@@ -177,9 +177,15 @@ cython_debug/
 # Project-specific ignores
 # ============================================
 
+# Sensitive credentials
+UserandPass.txt
+
 # Uploaded files (user resumes, profile images)
 backend/uploads/
 *.pdf
+
+# Script output files
+backend/scripts/output_*.txt
 
 # Node modules (frontend)
 node_modules/
@@ -190,3 +196,10 @@ node_modules/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Dynamic reports and test directories
+reports/
+test model/
+backend/models/*.png
+backend/models/*.json
+!backend/models/.gitkeep

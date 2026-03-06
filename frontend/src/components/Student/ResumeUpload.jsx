@@ -130,6 +130,18 @@ const ResumeUpload = () => {
             const uploadResult = await uploadResponse.json();
             setResumeId(uploadResult.id);
 
+            // ⚠️ ตรวจจับ OCR — PDF สแกนจากรูปภาพ
+            if (uploadResult.status === 'ocr_not_supported') {
+                setError(
+                    '⚠️ ไม่สามารถอ่านข้อความจาก PDF ได้ — ไฟล์อาจเป็น PDF ที่สแกนจากเอกสาร (รูปภาพ)\n\n' +
+                    '🔧 ระบบยังไม่รองรับ OCR (การอ่านข้อความจากรูปภาพ) ในขณะนี้\n\n' +
+                    '✅ กรุณาอัปโหลด PDF ที่สร้างจากโปรแกรม เช่น Microsoft Word, Canva, Google Docs หรือ Overleaf'
+                );
+                setIsAnalyzing(false);
+                setUploadedFile(null);
+                return;
+            }
+
             // แปลง extracted_features เป็นรูปแบบที่ UI ต้องการ
             const features = uploadResult.extracted_features || {};
             const allSkills = [
@@ -355,19 +367,56 @@ const ResumeUpload = () => {
                         </div>
 
                         {error && (
-                            <div className="error-message" style={{
-                                marginTop: '1rem', padding: '1rem',
-                                backgroundColor: '#FEE2E2', border: '1px solid #EF4444',
-                                borderRadius: '8px', color: '#991B1B'
-                            }}>
-                                <strong>❌ เกิดข้อผิดพลาด:</strong> {error}
+                            <div className={`notification-banner ${error.includes('OCR') ? 'notification-warning' : 'notification-error'}`}>
+                                <div className="notification-icon">
+                                    {error.includes('OCR') ? (
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                                            <line x1="12" y1="9" x2="12" y2="13" />
+                                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                                        </svg>
+                                    ) : (
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <line x1="15" y1="9" x2="9" y2="15" />
+                                            <line x1="9" y1="9" x2="15" y2="15" />
+                                        </svg>
+                                    )}
+                                </div>
+                                <div className="notification-content">
+                                    <h4>{error.includes('OCR') ? 'ไม่รองรับ OCR' : 'เกิดข้อผิดพลาด'}</h4>
+                                    <p>{error.includes('OCR')
+                                        ? 'ไฟล์อาจเป็น PDF ที่สแกนจากเอกสาร (รูปภาพ) — ระบบยังไม่รองรับการอ่านข้อความจากรูปภาพ (OCR) ในขณะนี้'
+                                        : error
+                                    }</p>
+                                    {error.includes('OCR') && (
+                                        <p className="notification-suggestion">
+                                            กรุณาอัปโหลด PDF ที่สร้างจากโปรแกรม เช่น Microsoft Word, Canva, Google Docs หรือ Overleaf
+                                        </p>
+                                    )}
+                                </div>
+                                <button className="notification-close" onClick={() => setError(null)}>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
                             </div>
                         )}
+
+                        {/* OCR Info Hint */}
+                        <div className="notification-hint">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="16" x2="12" y2="12" />
+                                <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                            <span>รองรับเฉพาะ PDF ดิจิทัล (Word, Canva, Google Docs) — ยังไม่รองรับ PDF สแกน (OCR)</span>
+                        </div>
 
                         {isAnalyzing && (
                             <div className="analyzing-indicator">
                                 <div className="spinner"></div>
-                                <p>🤖 AI กำลังวิเคราะห์ Resume ของคุณ...</p>
+                                <p>AI กำลังวิเคราะห์ Resume ของคุณ...</p>
                             </div>
                         )}
                     </div>

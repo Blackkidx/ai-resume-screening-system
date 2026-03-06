@@ -1,7 +1,33 @@
 # แทนที่ไฟล์ backend/routes/auth.py เดิม
-from fastapi import APIRouter, HTTPException, status, Depends
+import time
+from collections import defaultdict
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from datetime import datetime
 from bson import ObjectId
+
+# =============================================================================
+# RATE LIMITING SETUP
+# =============================================================================
+LOGIN_ATTEMPTS = defaultdict(list)
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_TIME_SECONDS = 300 # 5 minutes
+
+def check_login_rate_limit(request: Request):
+    """ป้องกัน Brute Force Attack บน Login Endpoint"""
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    
+    # ลบประวัติเก่าที่หมดเวลาแล้ว
+    LOGIN_ATTEMPTS[client_ip] = [t for t in LOGIN_ATTEMPTS[client_ip] if now - t < LOCKOUT_TIME_SECONDS]
+    
+    if len(LOGIN_ATTEMPTS[client_ip]) >= MAX_LOGIN_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many login attempts. Please try again after {LOCKOUT_TIME_SECONDS // 60} minutes."
+        )
+    
+    # เพิ่มประวัติการพยายามเข้าระบบครั้งนี้
+    LOGIN_ATTEMPTS[client_ip].append(now)
 
 # Local imports
 from core.models import (
@@ -10,7 +36,7 @@ from core.models import (
 )
 from core.auth import (
     hash_password, verify_password, create_access_token,
-    get_current_user_id, ACCESS_TOKEN_EXPIRE_MINUTES
+    get_current_user_id, ACCESS_TOKEN_EXPIRE_MINUTES, blacklist_token
 )
 from core.database import get_database
 
@@ -184,8 +210,9 @@ async def register_user(user_data: UserRegisterRequest):
 # LOGIN - เข้าสู่ระบบ (All roles)
 # =============================================================================
 @router.post("/login", response_model=TokenResponse)
-async def login_user(login_data: UserLoginRequest):
+async def login_user(login_data: UserLoginRequest, request: Request):
     """เข้าสู่ระบบ - ทุก Role"""
+    check_login_rate_limit(request)
     db = get_database()
     
     # หา user จาก username
@@ -313,7 +340,7 @@ async def get_current_user_info(user_id: str = Depends(get_current_user_id)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 # =============================================================================
 # เหลือเหมือนเดิม...
@@ -359,6 +386,10 @@ async def change_password(
     return {"message": "Password changed successfully"}
 
 @router.post("/logout")
-async def logout_user():
-    """ออกจากระบบ (Client จะลบ token เอง)"""
+async def logout_user(request: Request):
+    """ออกจากระบบ และ invalidate token"""
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        blacklist_token(token)
     return {"message": "Logged out successfully"}

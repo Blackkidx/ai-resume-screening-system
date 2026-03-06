@@ -1,4 +1,4 @@
-# PLAN: Notification System (SSE + Timeline)
+# PLAN: Notification System (SSE + Timeline) ✅ COMPLETED
 
 > ระบบแจ้งเตือนสถานะใบสมัครงานแบบ Real-time สำหรับนักศึกษา
 
@@ -162,11 +162,11 @@ CSS สำหรับ bell icon, dropdown panel, notification items, animations
 
 ## Verification Checklist
 
-- [ ] HR กดตัดสิน → notification สร้างใน DB ทันที
-- [ ] Student ที่ online เห็น 🔔 badge อัพเดท real-time
-- [ ] คลิก bell → เห็น dropdown รายการแจ้งเตือน
-- [ ] คลิก notification → เปิดหน้า MyApplications
-- [ ] MyApplications แสดง Timeline + HR reason ถูกต้อง
-- [ ] Mark as read ทำงาน (badge ลดลง)
-- [ ] SSE reconnect เมื่อ connection หลุด
-- [ ] ไม่แสดง bell สำหรับ HR user (เฉพาะ Student)
+- [x] HR กดตัดสิน → notification สร้างใน DB ทันที
+- [x] Student ที่ online เห็น 🔔 badge อัพเดท real-time
+- [x] คลิก bell → เห็น dropdown รายการแจ้งเตือน
+- [x] คลิก notification → เปิดหน้า MyApplications
+- [x] MyApplications แสดง Timeline + HR reason ถูกต้อง
+- [x] Mark as read ทำงาน (badge ลดลง)
+- [x] SSE reconnect เมื่อ connection หลุด
+- [x] ไม่แสดง bell สำหรับ HR user (เฉพาะ Student)

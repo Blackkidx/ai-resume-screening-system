@@ -103,7 +103,7 @@ async def get_profile(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch profile: {str(e)}"
+            detail="Failed to fetch profile"
         )
 
 # =============================================================================
@@ -172,7 +172,7 @@ async def update_profile(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update profile: {str(e)}"
+            detail="Failed to update profile"
         )
 
 # =============================================================================
@@ -200,7 +200,7 @@ async def upload_profile_image(
         if file_ext not in ALLOWED_EXTENSIONS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
+                detail="Invalid file type"
             )
         
         # ตรวจสอบขนาดไฟล์
@@ -208,7 +208,22 @@ async def upload_profile_image(
         if len(contents) > MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File too large. Maximum size is 5MB"
+                detail="File too large"
+            )
+        
+        # ตรวจสอบ Magic Bytes เพื่อป้องกันการปลอมแปลงไฟล์
+        IMAGE_MAGIC_BYTES = {
+            b'\xff\xd8\xff': 'jpg',      # JPEG
+            b'\x89PNG': 'png',            # PNG
+            b'GIF87a': 'gif',             # GIF87a
+            b'GIF89a': 'gif',             # GIF89a
+            b'RIFF': 'webp',              # WebP (RIFF container)
+        }
+        is_valid_image = any(contents.startswith(magic) for magic in IMAGE_MAGIC_BYTES)
+        if not is_valid_image:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid image file format"
             )
         
         # สร้างชื่อไฟล์ใหม่
@@ -261,7 +276,7 @@ async def upload_profile_image(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload image: {str(e)}"
+            detail="Failed to upload image"
         )
 
 # =============================================================================
@@ -304,7 +319,7 @@ async def delete_profile_image(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete profile image: {str(e)}"
+            detail="Failed to delete profile image"
         )
 
 # =============================================================================
@@ -346,7 +361,7 @@ async def change_password(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to change password: {str(e)}"
+            detail="Failed to change password"
         )
 
 # =============================================================================
@@ -407,7 +422,7 @@ async def get_dashboard_info(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch dashboard data: {str(e)}"
+            detail="Failed to fetch dashboard data"
         )
 
 # =============================================================================

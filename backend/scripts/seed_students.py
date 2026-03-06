@@ -84,13 +84,14 @@ STUDENTS = [
     {"username": "phanudach",    "email": "phanudach@student.example.com",    "full_name": "ภานุดาช",      "first_name": "ภานุดาช",      "last_name": ""},
     {"username": "puridech",     "email": "puridech@student.example.com",     "full_name": "ภูริเดช",      "first_name": "ภูริเดช",      "last_name": ""},
     {"username": "sutaya",       "email": "sutaya@student.example.com",       "full_name": "สุทยา",        "first_name": "สุทยา",        "last_name": ""},
-    {"username": "teerawat",     "email": "teerawat@student.example.com",     "full_name": "ธีรวัฒน์",      "first_name": "ธีรวัฒน์",      "last_name": ""},
     {"username": "thanakorn",    "email": "thanakorn@student.example.com",    "full_name": "ธนกร",         "first_name": "ธนกร",         "last_name": ""},
     {"username": "thanatan",     "email": "thanatan@student.example.com",     "full_name": "ธนาธาร",       "first_name": "ธนาธาร",       "last_name": ""},
     {"username": "theeraphat",   "email": "theeraphat@student.example.com",   "full_name": "ธีรภัทร",      "first_name": "ธีรภัทร",      "last_name": ""},
     {"username": "yanisa",       "email": "yanisa@student.example.com",       "full_name": "ญาณิสา",       "first_name": "ญาณิสา",       "last_name": ""},
     {"username": "pantharee",    "email": "pantharee@student.example.com",    "full_name": "พันธรี",       "first_name": "พันธรี",       "last_name": ""},
     {"username": "setthapong",   "email": "setthapong@student.example.com",   "full_name": "เศรษฐพงษ์",    "first_name": "เศรษฐพงษ์",    "last_name": ""},
+    {"username": "pongpapuan",   "email": "pongpapuan@student.example.com",   "full_name": "พงศภัคทร",     "first_name": "พงศภัคทร",     "last_name": ""},
+    {"username": "teerawat",     "email": "teerawat@student.example.com",     "full_name": "ธีรวัฒน์",     "first_name": "ธีรวัฒน์",     "last_name": ""},
 ]
 
 RESUME_FILES = {
@@ -102,13 +103,14 @@ RESUME_FILES = {
     "phanudach":    "Resume Phanudach.pdf",
     "puridech":     "Resume Puridech.pdf",
     "sutaya":       "Resume Sutaya.pdf",
-    "teerawat":     "Resume Teerawat.pdf",
     "thanakorn":    "Resume Thanakorn.pdf",
     "thanatan":     "Resume Thanatan.pdf",
     "theeraphat":   "Resume Theeraphat.pdf",
     "yanisa":       "Resume Yanisa.pdf",
     "pantharee":    "Resume Pantharee.pdf",
     "setthapong":   "Resume Setthapong.pdf",
+    "pongpapuan":   "resume Pongpapuan.pdf",
+    "teerawat":     "Resume Teerawat.pdf",
 }
 
 ACCEPT_REASONS = [
@@ -441,9 +443,9 @@ async def seed():
         # Sort by score descending
         job_scores.sort(key=lambda x: x[1]["overall_score"], reverse=True)
 
-        # Select 4-5 jobs: top 2-3 + bottom 1-2 (mix of good and bad matches)
-        num_apps = random.randint(4, 5)
-        num_top = random.randint(2, 3)
+        # Select 2-3 jobs: top 1-2 + bottom 1 (mix of good and bad matches)
+        num_apps = random.randint(2, 3)
+        num_top = random.randint(1, 2)
         num_bottom = num_apps - num_top
 
         selected = []
@@ -526,86 +528,14 @@ async def seed():
     print(f"\n  → Total applications created: {total_applications}\n")
 
     # =================================================================
-    # STEP 5 — Simulate HR Decisions
-    # =================================================================
-    print(f"{'='*60}")
-    print(f"🤝 STEP 5: Simulating HR decisions...")
-    print(f"{'='*60}")
-
-    accepted_count = 0
-    rejected_count = 0
-
-    for rec in app_records:
-        app_id = rec["app_id"]
-        job = rec["job"]
-        ai_score = rec["ai_score"]
-        breakdown = rec["breakdown"]
-
-        # Simulate decision
-        decision = simulate_hr_decision(ai_score, breakdown)
-
-        if decision == "accepted":
-            reason = random.choice(ACCEPT_REASONS)
-            accepted_count += 1
-        else:
-            reason = random.choice(REJECT_REASONS)
-            rejected_count += 1
-
-        # Find the HR user who owns this job's company
-        hr_user = await db.users.find_one({
-            "user_type": "HR",
-            "company_id": ObjectId(job["company_id"]) if ObjectId.is_valid(job.get("company_id", "")) else None,
-        })
-        # Fallback: try by created_by
-        if not hr_user:
-            hr_user = await db.users.find_one({"_id": ObjectId(job["created_by"])}) if ObjectId.is_valid(job.get("created_by", "")) else None
-
-        decided_by = str(hr_user["_id"]) if hr_user else "seed_script"
-
-        # Update application — same fields as routes/job.py update_application_status
-        update_data = {
-            "status": decision,
-            "hr_decision": decision,
-            "hr_reason": reason,
-            "decided_at": datetime.utcnow(),
-            "decided_by": decided_by,
-            "ai_score_at_decision": ai_score,
-        }
-
-        # ai_breakdown_at_decision — use matching_breakdown
-        if breakdown:
-            update_data["ai_breakdown_at_decision"] = breakdown
-
-        await db.applications.update_one(
-            {"_id": app_id},
-            {"$set": update_data},
-        )
-
-    total_decided = accepted_count + rejected_count
-    print(f"  Accepted: {accepted_count}")
-    print(f"  Rejected: {rejected_count}")
-    if total_decided > 0:
-        print(f"  Balance:  {accepted_count/total_decided*100:.1f}% / {rejected_count/total_decided*100:.1f}%")
-    print()
-
-    # =================================================================
-    # STEP 6 — Summary
+    # STEP 5 — Summary (All applications stay as 'pending')
     # =================================================================
     print("=" * 60)
-    print("✅ [DONE] Seeding Complete!")
+    print("[DONE] Seeding Complete!")
     print("=" * 60)
     print(f"  Students:      {len(STUDENTS)} accounts")
     print(f"  Resumes:       {created_resumes} uploaded + AI extracted")
-    print(f"  Applications:  {total_applications} created")
-    print(f"  HR Decisions:  {total_decided} ({accepted_count} accepted, {rejected_count} rejected)")
-    print()
-    if total_decided > 0:
-        print(f"  Class Balance:")
-        print(f"    Accepted: {accepted_count/total_decided*100:.1f}% ({accepted_count})")
-        print(f"    Rejected: {rejected_count/total_decided*100:.1f}% ({rejected_count})")
-    print()
-    print("  Ready for XGBoost training!")
-    print("  Run: python backend/scripts/train_xgboost.py")
+    print(f"  Applications:  {total_applications} created (all pending)")
     print("=" * 60)
 
     client.close()

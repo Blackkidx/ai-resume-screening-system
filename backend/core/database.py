@@ -3,8 +3,11 @@
 # Phase 1: เชื่อมต่อ MongoDB Atlas เบื้องต้น
 # =============================================================================
 import os
+import logging
 import motor.motor_asyncio
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 # โหลดไฟล์ .env เพื่ออ่าน environment variables
 load_dotenv()
@@ -34,10 +37,15 @@ async def connect_to_mongo():
         DATABASE_NAME = os.getenv("DATABASE_NAME", "ai_resume_screening")
         
         if not MONGODB_URL:
-            raise Exception("[ERROR] MONGODB_URL not found in .env file")
+            raise Exception("MONGODB_URL not found in .env file")
         
-        print(f"[*] Connecting to MongoDB Atlas...")
-        print(f"[DB] Database name: {DATABASE_NAME}")
+        # Security: warn and strip tlsAllowInvalidCertificates if present
+        if "tlsAllowInvalidCertificates=true" in MONGODB_URL:
+            logger.warning("[SECURITY] tlsAllowInvalidCertificates=true detected — removing for secure TLS validation")
+            MONGODB_URL = MONGODB_URL.replace("tlsAllowInvalidCertificates=true", "tlsAllowInvalidCertificates=false")
+        
+        logger.info("Connecting to MongoDB Atlas...")
+        logger.info("Database name: %s", DATABASE_NAME)
         
         # สร้างการเชื่อมต่อแบบง่าย - ให้ connection string จัดการ SSL
         database_client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
@@ -47,16 +55,12 @@ async def connect_to_mongo():
         # ทดสอบการเชื่อมต่อด้วยคำสั่ง ping
         await database_client.admin.command('ping')
         
-        print("[OK] Connected to MongoDB Atlas successfully!")
+        logger.info("Connected to MongoDB Atlas successfully!")
         return True
         
     except Exception as e:
-        print(f"[ERROR] Failed to connect to MongoDB: {e}")
-        print("[INFO] กรุณาตรวจสอบ:")
-        print("   1. ไฟล์ .env มี MONGODB_URL ถูกต้องหรือไม่")
-        print("   2. Internet connection")
-        print("   3. MongoDB Atlas cluster เปิดอยู่หรือไม่")
-        print("   4. IP Address อนุญาตใน MongoDB Atlas หรือไม่")
+        logger.error("Failed to connect to MongoDB: %s", e)
+        logger.info("กรุณาตรวจสอบ: 1) .env MONGODB_URL 2) Internet 3) Atlas cluster 4) IP whitelist")
         raise e
 
 async def close_mongo_connection():
@@ -68,7 +72,7 @@ async def close_mongo_connection():
     
     if database_client is not None:
         database_client.close()
-        print("[*] Disconnected from MongoDB Atlas")
+        logger.info("Disconnected from MongoDB Atlas")
 
 async def test_connection():
     """
@@ -95,7 +99,7 @@ async def test_connection():
     except Exception as e:
         return {
             "status": "unhealthy", 
-            "message": f"MongoDB connection failed: {str(e)}"
+            "message": "MongoDB connection failed"
         }
 
 # =============================================================================
@@ -136,13 +140,13 @@ async def test_insert_data():
         }
         
         result = await db.test_collection.insert_one(test_data)
-        print(f"[OK] Test data inserted with ID: {result.inserted_id}")
+        logger.info("Test data inserted with ID: %s", result.inserted_id)
         
         return {"success": True, "inserted_id": str(result.inserted_id)}
         
     except Exception as e:
-        print(f"[ERROR] Failed to insert test data: {e}")
-        return {"success": False, "error": str(e)}
+        logger.error("Failed to insert test data: %s", e)
+        return {"success": False, "error": "Insert failed"}
 
 async def test_read_data():
     """
@@ -154,12 +158,12 @@ async def test_read_data():
         # อ่านข้อมูลจากตาราง test_collection
         documents = await db.test_collection.find().to_list(length=10)
         
-        print(f"[OK] Found {len(documents)} test documents")
+        logger.info("Found %d test documents", len(documents))
         return {"success": True, "count": len(documents), "data": documents}
         
     except Exception as e:
-        print(f"[ERROR] Failed to read test data: {e}")
-        return {"success": False, "error": str(e)}
+        logger.error("Failed to read test data: %s", e)
+        return {"success": False, "error": "Read failed"}
 
 # =============================================================================
 # COMPATIBILITY FUNCTIONS 🔄 - สำหรับ backward compatibility

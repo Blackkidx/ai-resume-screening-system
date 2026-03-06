@@ -2,15 +2,18 @@
 # =============================================================================
 # 🚀 FASTAPI MAIN APPLICATION - AI Resume Screening System
 # =============================================================================
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import uvicorn
 import os
 import sys
+import logging
 from dotenv import load_dotenv
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 # เพิ่ม current directory ลง Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -33,9 +36,9 @@ from core.auth import get_current_user_data
 try:
     from routes.job import router as job_router
     JOB_ROUTER_AVAILABLE = True
-    print("[OK] Job router imported successfully")
+    logger.info("Job router imported successfully")
 except ImportError as e:
-    print(f"[WARNING] Job router not available: {e}")
+    logger.warning("Job router not available: %s", e)
     JOB_ROUTER_AVAILABLE = False
     job_router = None
 
@@ -43,9 +46,9 @@ except ImportError as e:
 try:
     from routes.xgboost import router as xgboost_router
     XGBOOST_ROUTER_AVAILABLE = True
-    print("[OK] XGBoost router imported successfully")
+    logger.info("XGBoost router imported successfully")
 except ImportError as e:
-    print(f"[WARNING] XGBoost router not available: {e}")
+    logger.warning("XGBoost router not available: %s", e)
     XGBOOST_ROUTER_AVAILABLE = False
     xgboost_router = None
 
@@ -55,12 +58,14 @@ load_dotenv()
 # =============================================================================
 # 📊 APP CONFIGURATION
 # =============================================================================
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
 app = FastAPI(
     title="AI Resume Screening System",
     description="ระบบคัดกรองเรซูเม่สำหรับนักศึกษาฝึกงานด้วยเทคโนโลยี AI",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    docs_url="/docs" if ENVIRONMENT == "development" else None,
+    redoc_url="/redoc" if ENVIRONMENT == "development" else None
 )
 
 # =============================================================================
@@ -86,8 +91,46 @@ app.add_middleware(
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "Origin"],
 )
+
+# =============================================================================
+# 🛡️ SECURITY HEADERS MIDDLEWARE
+# =============================================================================
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if ENVIRONMENT != "development":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+@app.middleware("http")
+async def verify_uploads_access(request: Request, call_next):
+    """ตรวจสอบสิทธิ์การเข้าถึงไฟล์ Static"""
+    if request.url.path.startswith("/uploads"):
+        if request.method == "OPTIONS":
+            return await call_next(request)
+            
+        token = None
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+        elif "token" in request.query_params:
+            token = request.query_params["token"]
+            
+        if not token:
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized access to static files. Please provide a token."})
+            
+        from core.auth import validate_token
+        if not validate_token(token):
+            return JSONResponse(status_code=401, content={"detail": "Invalid or expired token."})
+            
+    return await call_next(request)
 
 # =============================================================================
 # 📋 INCLUDE ROUTERS - เพิ่ม API endpoints
@@ -103,16 +146,16 @@ app.include_router(matching_router, prefix="/api")
 # Include job router เฉพาะเมื่อใช้ได้
 if JOB_ROUTER_AVAILABLE and job_router is not None:
     app.include_router(job_router, prefix="/api")
-    print("[OK] Job router included")
+    logger.info("Job router included")
 else:
-    print("[WARNING] Job router skipped")
+    logger.warning("Job router skipped")
 
 # Include XGBoost router
 if XGBOOST_ROUTER_AVAILABLE and xgboost_router is not None:
     app.include_router(xgboost_router, prefix="/api/xgboost")
-    print("[OK] XGBoost router included")
+    logger.info("XGBoost router included")
 else:
-    print("[WARNING] XGBoost router skipped")
+    logger.warning("XGBoost router skipped")
 
 # =============================================================================
 # 🔄 APP LIFECYCLE EVENTS
@@ -124,7 +167,7 @@ async def startup_event():
     - เชื่อมต่อฐานข้อมูล
     - ตั้งค่าเริ่มต้น
     """
-    print("[*] Starting AI Resume Screening System...")
+    logger.info("Starting AI Resume Screening System...")
     await connect_to_mongo()
     
     # ตรวจสอบ uploads folder
@@ -132,21 +175,20 @@ async def startup_event():
     for directory in uploads_dirs:
         if not os.path.exists(directory):
             os.makedirs(directory)
-            print(f"[*] Created directory: {directory}")
+            logger.info("Created directory: %s", directory)
     
     # Initialize XGBoost Service
     try:
         from services.xgboost_service import XGBoostService
         xgb = XGBoostService.get_instance()
         if xgb.is_model_available():
-            print("[OK] ✅ XGBoost model loaded")
+            logger.info("XGBoost model loaded")
         else:
-            print("[INFO] ⚠️ XGBoost model not found — using rule-based fallback")
+            logger.info("XGBoost model not found — using rule-based fallback")
     except Exception as e:
-        print(f"[WARNING] XGBoost service init failed: {e}")
+        logger.warning("XGBoost service init failed: %s", e)
     
-    print("[*] Application started successfully!")
-    print(f"[*] Static files available at: http://localhost:8000/uploads/")
+    logger.info("Application started successfully!")
 
 @app.on_event("shutdown") 
 async def shutdown_event():
@@ -154,9 +196,9 @@ async def shutdown_event():
     🛑 เหตุการณ์เมื่อแอพปิดทำงาน
     - ปิดการเชื่อมต่อฐานข้อมูล
     """
-    print("🛑 Shutting down AI Resume Screening System...")
+    logger.info("Shutting down AI Resume Screening System...")
     await close_mongo_connection()
-    print("👋 Application stopped successfully!")
+    logger.info("Application stopped successfully!")
 
 # =============================================================================
 # 🏠 ROOT ENDPOINTS
@@ -250,7 +292,7 @@ async def health_check():
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"System health check failed: {str(e)}"
+            detail="System health check failed. Please try again later."
         )
 
 # =============================================================================
@@ -313,10 +355,14 @@ async def manual_get_jobs(
         for job in jobs:
             # 🔑 แปลง _id (ObjectId) เป็น string
             job["id"] = str(job["_id"])
-            # ลบ _id เดิมออก (ไม่จำเป็น)
-            job.pop("_id", None)
+            # 📝 แปลง ObjectId เป็น string
             
-            # ตั้งค่า default ถ้าไม่มี
+            del job["_id"]
+            # 📝 ลบ _id เดิมออก (ไม่จำเป็น)
+            
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━
+            # ขั้นที่ 4: ตั้งค่า default
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━
             job.setdefault("company_name", "Unknown Company")
             job.setdefault("requirements", [])
             job.setdefault("skills_required", [])
@@ -327,7 +373,7 @@ async def manual_get_jobs(
             job.setdefault("applications_count", 0)
             
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # แปลง datetime เป็น string
+            # ขั้นที่ 5: แปลง datetime → string
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━
             if "created_at" in job:
                 if hasattr(job["created_at"], "isoformat"):
@@ -352,10 +398,10 @@ async def manual_get_jobs(
         return result_jobs
         
     except Exception as e:
+        logger.error("Error fetching jobs: %s", e)
         return {
-            "error": str(e),
             "jobs": [],
-            "message": "Error fetching jobs but API is working"
+            "message": "Error fetching jobs. Please try again later."
         }
 
 @app.get("/api/jobs/{job_id}")
@@ -399,7 +445,7 @@ async def manual_get_job_by_id(
         # 📝 แปลง ObjectId เป็น string
         
         del job["_id"]
-        # 📝 ลบ _id ออก (ไม่ต้องการแล้ว)
+        # 📝 ลบ _id เดิมออก (ไม่ต้องการแล้ว)
         
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━
         # ขั้นที่ 4: ตั้งค่า default
@@ -445,10 +491,10 @@ async def manual_get_job_by_id(
         
     except Exception as e:
         # 📝 Exception อื่นๆ: Error ที่ไม่คาดคิด
-        print(f"❌ Error in get_job_by_id: {e}")
+        logger.error("Error in get_job_by_id: %s", e)
         raise HTTPException(
             status_code=500,
-            detail=f"Error fetching job: {str(e)}"
+            detail="Error fetching job."
         )
 
 @app.post("/api/jobs")
@@ -462,23 +508,13 @@ async def manual_create_job(
         from datetime import datetime
         from bson import ObjectId
         
-        # Debug: แสดงข้อมูล current_user แบบละเอียด
-        print("=" * 80)
-        print("[DEBUG] MANUAL CREATE JOB - Full current_user payload:")
-        print(f"  Type: {type(current_user)}")
-        print(f"  Content: {current_user}")
-        print(f"  Keys: {current_user.keys() if isinstance(current_user, dict) else 'N/A'}")
-        print(f"  user_type value: '{current_user.get('user_type')}'")
-        print(f"  user_type type: {type(current_user.get('user_type'))}")
-        print("=" * 80)
-        
         # ตรวจสอบ role - ต้องเป็น HR หรือ Admin
         user_type = current_user.get("user_type")
         if user_type not in ["HR", "Admin"]:
-            print(f"[ERROR] Access denied! user_type='{user_type}' not in ['HR', 'Admin']")
+            logger.warning("Access denied for user_type=%s", user_type)
             raise HTTPException(
                 status_code=403, 
-                detail=f"HR or Admin only. Your user_type: {user_type}"
+                detail="Access denied. HR or Admin role required."
             )
         
         # ดึงข้อมูล company (ถ้าเป็น HR)
@@ -518,17 +554,17 @@ async def manual_create_job(
         if "updated_at" in created_job and hasattr(created_job["updated_at"], "isoformat"):
             created_job["updated_at"] = created_job["updated_at"].isoformat()
         
-        print(f"[SUCCESS] Job created successfully! ID: {created_job['id']}")
+        logger.info("Job created successfully: %s", created_job['id'])
         
         return created_job
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[ERROR] Failed to create job: {str(e)}")
+        logger.error("Failed to create job: %s", e)
         raise HTTPException(
             status_code=500,
-            detail=f"Error creating job: {str(e)}"
+            detail="Error creating job."
         )
 
 
@@ -567,16 +603,8 @@ if __name__ == "__main__":
     PORT = int(os.getenv("PORT", "8000"))
     DEBUG = os.getenv("ENVIRONMENT", "development") == "development"
     
-    print(f"[*] Starting server on http://{HOST}:{PORT}")
-    print(f"[*] API Documentation: http://{HOST}:{PORT}/docs")
-    print(f"[*] Auth endpoints: http://{HOST}:{PORT}/api/auth/*")
-    print(f"[*] Profile endpoints: http://{HOST}:{PORT}/api/profile/*")
-    print(f"[*] Job endpoints: http://{HOST}:{PORT}/api/jobs/*")
-    print(f"[*] Admin endpoints: http://{HOST}:{PORT}/api/admin/*")
-    print(f"[*] Company endpoints: http://{HOST}:{PORT}/api/companies/*")
-    print(f"[*] Static files: http://{HOST}:{PORT}/uploads/*")
-    print(f"[*] Resume endpoints: http://{HOST}:{PORT}/api/resumes/*")
-    print(f"[*] Environment: {os.getenv('ENVIRONMENT', 'development')}")
+    logger.info("Starting server on http://%s:%d", HOST, PORT)
+    logger.info("Environment: %s", os.getenv('ENVIRONMENT', 'development'))
    
     
     uvicorn.run(

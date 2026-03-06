@@ -42,15 +42,23 @@ class UserUpdateRequest(BaseModel):
     def username_must_be_valid(cls, v):
         if v is not None:
             if len(v.strip()) < 3:
-                raise ValueError('Username must be at least 3 characters')
+                raise ValueError('Invalid username')
             if not v.replace('_', '').replace('-', '').isalnum():
-                raise ValueError('Username can only contain letters, numbers, underscore and hyphen')
+                raise ValueError('Invalid username')
         return v
     
     @validator('new_password')
     def password_must_be_strong(cls, v):
-        if v is not None and len(v) < 6:
-            raise ValueError('Password must be at least 6 characters')
+        if v is not None:
+            import re
+            if len(v) < 8:
+                raise ValueError('Password must be at least 8 characters')
+            if not re.search(r"[A-Z]", v):
+                raise ValueError('Password must contain at least one uppercase letter')
+            if not re.search(r"[a-z]", v):
+                raise ValueError('Password must contain at least one lowercase letter')
+            if not re.search(r"\d", v):
+                raise ValueError('Password must contain at least one number')
         return v
 
 class UserCreateRequest(BaseModel):
@@ -103,7 +111,7 @@ async def get_admin_dashboard(admin_data: dict = Depends(require_admin)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch dashboard data: {str(e)}"
+            detail="Failed to fetch dashboard data"
         )
 
 # =============================================================================
@@ -164,7 +172,7 @@ async def get_all_users(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch users: {str(e)}"
+            detail="Failed to fetch users"
         )
 
 # =============================================================================
@@ -218,7 +226,7 @@ async def get_available_hr_users(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch available HR users: {str(e)}"
+            detail="Failed to fetch available HR users"
         )
 
 @router.get("/users/{user_id}")
@@ -271,7 +279,7 @@ async def get_user_by_id(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch user: {str(e)}"
+            detail="Failed to fetch user"
         )
 
 # ⭐ อัปเดต PUT endpoint เพื่อรองรับ username และ password
@@ -386,7 +394,7 @@ async def update_user(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update user: {str(e)}"
+            detail="Failed to update user"
         )
 
 @router.delete("/users/{user_id}")
@@ -430,7 +438,7 @@ async def delete_user(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete user: {str(e)}"
+            detail="Failed to delete user"
         )
 
 # =============================================================================
@@ -506,7 +514,7 @@ async def create_user(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create user: {str(e)}"
+            detail="Failed to create user"
         )
 
 # ⭐ เพิ่ม endpoint สำหรับตรวจสอบ username ว่าซ้ำหรือไม่
@@ -541,5 +549,5 @@ async def check_username_availability(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to check username: {str(e)}"
+            detail="Failed to check username"
         )

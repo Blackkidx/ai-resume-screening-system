@@ -20,27 +20,48 @@ router = APIRouter(prefix="/profile", tags=["Profile Management"])
 from pydantic import BaseModel, EmailStr, validator
 
 class ProfileUpdate(BaseModel):
+    username: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     
-    @validator('full_name')
-    def name_must_not_be_empty(cls, v):
+    @validator('username')
+    def username_must_be_valid(cls, v):
         if v is not None and not v.strip():
-            raise ValueError('Full name cannot be empty')
+            raise ValueError('Username cannot be empty')
+        return v.strip() if v else None
+    
+    @validator('first_name')
+    def first_name_must_not_be_empty(cls, v):
+        if v is not None and not v.strip():
+            raise ValueError('First name cannot be empty')
+        return v.strip() if v else None
+
+    @validator('last_name')
+    def last_name_must_not_be_empty(cls, v):
+        if v is not None and not v.strip():
+            raise ValueError('Last name cannot be empty')
         return v.strip() if v else None
     
     @validator('phone')
     def phone_must_be_valid(cls, v):
         if v is not None and v.strip() == "":
             return None
-        return v.strip() if v else None
+        # Strip formatting characters before storing
+        if v:
+            cleaned = v.strip().replace('-', '').replace(' ', '')
+            return cleaned
+        return None
 
 class ProfileResponse(BaseModel):
     id: str
     username: str
     email: str
     full_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone: Optional[str] = None
     profile_image: Optional[str] = None
     user_type: str
@@ -90,7 +111,9 @@ async def get_profile(user_id: str = Depends(get_current_user_id)):
             id=str(user["_id"]),
             username=user["username"],
             email=user["email"],
-            full_name=user["full_name"],
+            full_name=user.get("full_name", ""),
+            first_name=user.get("first_name"),
+            last_name=user.get("last_name"),
             phone=user.get("phone"),
             profile_image=user.get("profile_image"),
             user_type=user["user_type"],
@@ -103,7 +126,7 @@ async def get_profile(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch profile"
+            detail=f"Failed to fetch profile: {str(e)}"
         )
 
 # =============================================================================
@@ -122,8 +145,33 @@ async def update_profile(
         # สร้าง update data
         update_data = {"updated_at": datetime.utcnow()}
         
-        # อัปเดต full_name
-        if profile_data.full_name is not None:
+        # อัปเดต username (ตรวจสอบซ้ำ)
+        if profile_data.username is not None:
+            username_check = await db.users.find_one({
+                "username": profile_data.username,
+                "_id": {"$ne": existing_user["_id"]}
+            })
+            if username_check:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username already exists"
+                )
+            update_data["username"] = profile_data.username
+
+        # อัปเดต first_name / last_name → auto-compute full_name
+        if profile_data.first_name is not None:
+            update_data["first_name"] = profile_data.first_name
+        if profile_data.last_name is not None:
+            update_data["last_name"] = profile_data.last_name
+        
+        # Auto-compute full_name when either name part changes
+        if "first_name" in update_data or "last_name" in update_data:
+            fn = update_data.get("first_name", existing_user.get("first_name", ""))
+            ln = update_data.get("last_name", existing_user.get("last_name", ""))
+            update_data["full_name"] = f"{fn} {ln}".strip()
+
+        # Legacy: support full_name directly too
+        if profile_data.full_name is not None and "full_name" not in update_data:
             update_data["full_name"] = profile_data.full_name
             
         # อัปเดต email (ตรวจสอบซ้ำ)
@@ -139,7 +187,7 @@ async def update_profile(
                 )
             update_data["email"] = profile_data.email
             
-        # อัปเดต phone
+        # อัปเดต phone (stored as raw digits)
         if profile_data.phone is not None:
             update_data["phone"] = profile_data.phone
         
@@ -172,7 +220,7 @@ async def update_profile(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update profile"
+            detail=f"Failed to update profile: {str(e)}"
         )
 
 # =============================================================================
@@ -200,7 +248,7 @@ async def upload_profile_image(
         if file_ext not in ALLOWED_EXTENSIONS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid file type"
+                detail=f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
             )
         
         # ตรวจสอบขนาดไฟล์
@@ -208,22 +256,7 @@ async def upload_profile_image(
         if len(contents) > MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File too large"
-            )
-        
-        # ตรวจสอบ Magic Bytes เพื่อป้องกันการปลอมแปลงไฟล์
-        IMAGE_MAGIC_BYTES = {
-            b'\xff\xd8\xff': 'jpg',      # JPEG
-            b'\x89PNG': 'png',            # PNG
-            b'GIF87a': 'gif',             # GIF87a
-            b'GIF89a': 'gif',             # GIF89a
-            b'RIFF': 'webp',              # WebP (RIFF container)
-        }
-        is_valid_image = any(contents.startswith(magic) for magic in IMAGE_MAGIC_BYTES)
-        if not is_valid_image:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid image file format"
+                detail="File too large. Maximum size is 5MB"
             )
         
         # สร้างชื่อไฟล์ใหม่
@@ -276,7 +309,7 @@ async def upload_profile_image(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to upload image"
+            detail=f"Failed to upload image: {str(e)}"
         )
 
 # =============================================================================
@@ -319,8 +352,86 @@ async def delete_profile_image(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete profile image"
+            detail=f"Failed to delete profile image: {str(e)}"
         )
+
+# =============================================================================
+# DELETE ACCOUNT - ลบบัญชีและข้อมูลทั้งหมดอย่างถาวร
+# =============================================================================
+@router.delete("/delete-account")
+async def delete_account(user_id: str = Depends(get_current_user_id)):
+    """ลบบัญชีผู้ใช้และข้อมูลทั้งหมดอย่างถาวร"""
+    try:
+        db = get_database()
+        user = await verify_user_access(user_id)
+        user_oid = user["_id"]
+        
+        # 1. ลบ Resume files + DB records
+        resumes = await db.resumes.find({"user_id": str(user_oid)}).to_list(100)
+        if not resumes:
+            resumes = await db.resumes.find({"user_id": user_oid}).to_list(100)
+        
+        for resume in resumes:
+            # ลบไฟล์ resume จาก disk
+            file_path = resume.get("file_path")
+            if file_path:
+                clean_path = file_path.lstrip("/")
+                if os.path.exists(clean_path):
+                    try:
+                        os.remove(clean_path)
+                    except:
+                        pass
+        
+        # ลบ resume records จาก DB
+        await db.resumes.delete_many({"user_id": str(user_oid)})
+        await db.resumes.delete_many({"user_id": user_oid})
+        
+        # 2. ลบ Job Applications
+        await db.applications.delete_many({"user_id": str(user_oid)})
+        await db.applications.delete_many({"user_id": user_oid})
+        
+        # 3. ลบ Profile image file
+        profile_image = user.get("profile_image")
+        if profile_image and profile_image.startswith("/uploads/profiles/"):
+            img_path = profile_image[1:]
+            if os.path.exists(img_path):
+                try:
+                    os.remove(img_path)
+                except:
+                    pass
+        
+        # 4. ลบ Notifications
+        try:
+            await db.notifications.delete_many({"user_id": str(user_oid)})
+            await db.notifications.delete_many({"user_id": user_oid})
+        except:
+            pass
+        
+        # 5. ลบ User record
+        result = await db.users.delete_one({"_id": user_oid})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete user account"
+            )
+        
+        return {
+            "message": "Account and all associated data deleted successfully",
+            "deleted": {
+                "resumes": len(resumes),
+                "user": True
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete account: {str(e)}"
+        )
+
 
 # =============================================================================
 # CHANGE PASSWORD - ทุก Role
@@ -361,7 +472,7 @@ async def change_password(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to change password"
+            detail=f"Failed to change password: {str(e)}"
         )
 
 # =============================================================================
@@ -422,7 +533,7 @@ async def get_dashboard_info(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch dashboard data"
+            detail=f"Failed to fetch dashboard data: {str(e)}"
         )
 
 # =============================================================================
@@ -432,19 +543,74 @@ def calculate_profile_completeness(user: dict) -> int:
     """คำนวณความสมบูรณ์ของโปรไฟล์ (0-100%)"""
     total_fields = 5
     completed_fields = 0
-    
-    # ข้อมูลพื้นฐานที่ต้องมี
     required_fields = ["full_name", "email", "username"]
     optional_fields = ["phone", "profile_image"]
-    
-    # นับข้อมูลพื้นฐาน
     for field in required_fields:
         if user.get(field):
             completed_fields += 1
-    
-    # นับข้อมูลเสริม
     for field in optional_fields:
         if user.get(field):
             completed_fields += 1
-    
     return int((completed_fields / total_fields) * 100)
+
+
+# =============================================================================
+# DELETE ACCOUNT - ลบบัญชีและข้อมูลทั้งหมดอย่างถาวร
+# =============================================================================
+@router.delete("/delete-account")
+async def delete_account(user_id: str = Depends(get_current_user_id)):
+    """ลบบัญชีผู้ใช้และข้อมูลทั้งหมดอย่างถาวร"""
+    try:
+        db = get_database()
+        user = await verify_user_access(user_id)
+        user_oid = user["_id"]
+
+        # 1. ลบ Resume files + DB records
+        resumes = await db.resumes.find({"user_id": str(user_oid)}).to_list(100)
+        for resume in resumes:
+            file_path = resume.get("file_path")
+            if file_path:
+                clean_path = file_path.lstrip("/")
+                if os.path.exists(clean_path):
+                    try:
+                        os.remove(clean_path)
+                    except:
+                        pass
+        await db.resumes.delete_many({"user_id": str(user_oid)})
+
+        # 2. ลบ Job Applications
+        await db.applications.delete_many({"user_id": str(user_oid)})
+
+        # 3. ลบ Profile image file
+        profile_image = user.get("profile_image")
+        if profile_image and profile_image.startswith("/uploads/profiles/"):
+            img_path = profile_image[1:]
+            if os.path.exists(img_path):
+                try:
+                    os.remove(img_path)
+                except:
+                    pass
+
+        # 4. ลบ Notifications
+        try:
+            await db.notifications.delete_many({"user_id": str(user_oid)})
+        except:
+            pass
+
+        # 5. ลบ User record
+        result = await db.users.delete_one({"_id": user_oid})
+        if result.deleted_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete user account"
+            )
+
+        return {"message": "Account and all associated data deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete account: {str(e)}"
+        )

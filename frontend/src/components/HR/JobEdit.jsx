@@ -3,11 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
+import { useNotification } from '../../contexts/NotificationContext';
 import '../../styles/job-creation.css';
 
 const JobEdit = () => {
     const { jobId } = useParams();
     const { user, isAuthenticated } = useAuth();
+    const notify = useNotification();
 
     const getAuthHeaders = () => {
         const token = sessionStorage.getItem('auth_token');
@@ -93,7 +95,7 @@ const JobEdit = () => {
         }
 
         if (!user || (user.user_type !== 'HR' && user.user_type !== 'Admin')) {
-            alert('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
+            notify.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
             navigate('/');
             return;
         }
@@ -309,6 +311,9 @@ const JobEdit = () => {
             if (formData.skills_required && formData.skills_required.length > 0) {
                 jobData.skills_required = formData.skills_required;
             }
+
+            console.log('Updating job with data:', jobData);
+
 
             const response = await fetch(`http://localhost:8000/api/jobs/${jobId}`, {
                 method: 'PUT',

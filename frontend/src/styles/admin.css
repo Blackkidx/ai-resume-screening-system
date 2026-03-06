@@ -13,7 +13,7 @@
 .admin-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 40px;
 }
 
 /* Header */
@@ -299,6 +299,7 @@
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -837,6 +838,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -858,6 +860,7 @@
     opacity: 0;
     transform: scale(0.9) translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -1003,20 +1006,20 @@
   .stats-grid {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
-  
+
   .filters {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .search-box {
     min-width: auto;
   }
-  
+
   .dashboard-tabs {
     overflow-x: auto;
   }
-  
+
   .tab-button {
     flex-shrink: 0;
     min-width: 120px;
@@ -1027,31 +1030,31 @@
   .admin-title {
     font-size: 2rem;
   }
-  
+
   .section-header {
     flex-direction: column;
     gap: 16px;
     text-align: center;
   }
-  
+
   .stats-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .actions-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .users-table-container,
   .companies-table-container {
     overflow-x: scroll;
   }
-  
+
   .users-table,
   .companies-table {
     min-width: 600px;
   }
-  
+
   .pagination {
     flex-direction: column;
     gap: 12px;
@@ -1073,7 +1076,7 @@
   .hr-sections {
     gap: 24px;
   }
-  
+
   .hr-management-content {
     padding: 16px;
   }
@@ -1092,7 +1095,7 @@
   .admin-container {
     padding: 0 15px;
   }
-  
+
   .modal {
     margin: 5px;
     max-width: calc(100% - 10px);

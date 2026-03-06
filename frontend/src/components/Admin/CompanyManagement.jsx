@@ -1,23 +1,25 @@
 // frontend/src/components/Admin/CompanyManagement.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import companyService from '../../services/companyService';
 import adminService from '../../services/adminService';
 import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
 
 const CompanyManagement = () => {
   const { user } = useAuth();
-  
+  const notify = useNotification();
+
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   // สำหรับ pagination และ filter
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [industryFilter, setIndustryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  
+
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -49,7 +51,7 @@ const CompanyManagement = () => {
         industry,
         is_active: status === '' ? null : status === 'active'
       });
-      
+
       if (result.success) {
         setCompanies(result.data);
       } else {
@@ -70,10 +72,10 @@ const CompanyManagement = () => {
         setSelectedCompany(result.data);
         setShowEditModal(true);
       } else {
-        alert('เกิดข้อผิดพลาดในการโหลดข้อมูลบริษัท: ' + result.error);
+        notify.error('เกิดข้อผิดพลาดในการโหลดข้อมูลบริษัท: ' + result.error);
       }
     } catch (error) {
-      alert('เกิดข้อผิดพลาดในการโหลดข้อมูลบริษัท');
+      notify.error('เกิดข้อผิดพลาดในการโหลดข้อมูลบริษัท');
     }
   };
 
@@ -83,13 +85,13 @@ const CompanyManagement = () => {
       try {
         const result = await companyService.deleteCompany(companyId);
         if (result.success) {
-          alert('ลบบริษัทสำเร็จ');
+          notify.success('ลบบริษัทสำเร็จ');
           loadCompanies(currentPage, searchTerm, industryFilter, statusFilter);
         } else {
-          alert(result.error);
+          notify.error(result.error);
         }
       } catch (error) {
-        alert('เกิดข้อผิดพลาดในการลบบริษัท');
+        notify.error('เกิดข้อผิดพลาดในการลบบริษัท');
       }
     }
   };
@@ -118,7 +120,7 @@ const CompanyManagement = () => {
     <div className="company-management">
       <div className="section-header">
         <h2>🏢 จัดการบริษัท</h2>
-        <button 
+        <button
           className="btn btn-primary"
           onClick={() => setShowCreateModal(true)}
         >
@@ -142,7 +144,7 @@ const CompanyManagement = () => {
             </div>
           )}
         </div>
-        
+
         <select
           value={industryFilter}
           onChange={(e) => setIndustryFilter(e.target.value)}
@@ -156,7 +158,7 @@ const CompanyManagement = () => {
           <option value="Manufacturing">Manufacturing</option>
           <option value="Retail">Retail</option>
         </select>
-        
+
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -166,15 +168,15 @@ const CompanyManagement = () => {
           <option value="active">เปิดใช้งาน</option>
           <option value="inactive">ปิดใช้งาน</option>
         </select>
-        
-        <button 
+
+        <button
           onClick={() => {
             setSearchTerm('');
             setIndustryFilter('');
             setStatusFilter('');
             setCurrentPage(1);
             loadCompanies(1, '', '', '');
-          }} 
+          }}
           className="btn btn-secondary"
         >
           ล้างตัวกรอง
@@ -233,21 +235,21 @@ const CompanyManagement = () => {
                     <td>{formatDate(company.created_at)}</td>
                     <td>
                       <div className="action-buttons">
-                        <button 
+                        <button
                           className="btn-action manage-hr"
                           onClick={() => handleManageHR(company)}
                           title="จัดการ HR"
                         >
                           👥
                         </button>
-                        <button 
+                        <button
                           className="btn-action edit"
                           onClick={() => handleEditCompany(company.id)}
                           title="แก้ไข"
                         >
                           ✏️
                         </button>
-                        <button 
+                        <button
                           className="btn-action delete"
                           onClick={() => handleDeleteCompany(company.id, company.name)}
                           title="ลบ"
@@ -261,8 +263,8 @@ const CompanyManagement = () => {
               ) : (
                 <tr>
                   <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
-                    {searchTerm || industryFilter || statusFilter 
-                      ? 'ไม่พบบริษัทที่ตรงกับเงื่อนไขการค้นหา' 
+                    {searchTerm || industryFilter || statusFilter
+                      ? 'ไม่พบบริษัทที่ตรงกับเงื่อนไขการค้นหา'
                       : 'ยังไม่มีบริษัทในระบบ'}
                   </td>
                 </tr>
@@ -275,7 +277,7 @@ const CompanyManagement = () => {
       {/* Pagination */}
       {companies.length > 0 && (
         <div className="pagination">
-          <button 
+          <button
             className="btn btn-secondary"
             disabled={currentPage === 1}
             onClick={() => {
@@ -286,10 +288,10 @@ const CompanyManagement = () => {
           >
             ← ก่อนหน้า
           </button>
-          
+
           <span className="page-info">หน้า {currentPage}</span>
-          
-          <button 
+
+          <button
             className="btn btn-secondary"
             disabled={companies.length < 10}
             onClick={() => {
@@ -349,6 +351,7 @@ const CompanyManagement = () => {
 
 // Create Company Modal Component
 const CreateCompanyModal = ({ onClose, onSuccess }) => {
+  const notify = useNotification();
   const [formData, setFormData] = useState({
     name: '',
     industry: '',
@@ -378,7 +381,7 @@ const CreateCompanyModal = ({ onClose, onSuccess }) => {
       });
 
       if (result.success) {
-        alert('สร้างบริษัทสำเร็จ');
+        notify.success('สร้างบริษัทสำเร็จ');
         onSuccess();
       } else {
         setError(result.error);
@@ -552,6 +555,7 @@ const CreateCompanyModal = ({ onClose, onSuccess }) => {
 
 // Edit Company Modal Component
 const EditCompanyModal = ({ company, onClose, onSuccess }) => {
+  const notify = useNotification();
   const [formData, setFormData] = useState({
     name: company.name || '',
     industry: company.industry || '',
@@ -583,7 +587,7 @@ const EditCompanyModal = ({ company, onClose, onSuccess }) => {
       });
 
       if (result.success) {
-        alert('อัปเดตข้อมูลบริษัทสำเร็จ');
+        notify.success('อัปเดตข้อมูลบริษัทสำเร็จ');
         onSuccess();
       } else {
         setError(result.error);
@@ -764,6 +768,7 @@ const EditCompanyModal = ({ company, onClose, onSuccess }) => {
 
 // Company HR Management Modal Component
 const CompanyHRManagementModal = ({ company, onClose, onSuccess }) => {
+  const notify = useNotification();
   const [hrUsers, setHrUsers] = useState([]);
   const [availableHRUsers, setAvailableHRUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -778,19 +783,19 @@ const CompanyHRManagementModal = ({ company, onClose, onSuccess }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      
+
       // โหลด HR ของ company
       const hrResult = await companyService.getCompanyHRUsers(company.id);
       if (hrResult.success) {
         setHrUsers(hrResult.data);
       }
-      
+
       // โหลด HR ที่ใช้ได้ทั้งหมด
       const availableResult = await companyService.getAvailableHRUsers();
       if (availableResult.success) {
         setAvailableHRUsers(availableResult.data);
       }
-      
+
     } catch (error) {
       setError('เกิดข้อผิดพลาดในการโหลดข้อมูล HR');
     } finally {
@@ -800,24 +805,24 @@ const CompanyHRManagementModal = ({ company, onClose, onSuccess }) => {
 
   const handleAssignHR = async () => {
     if (selectedHRIds.length === 0) {
-      alert('กรุณาเลือก HR อย่างน้อย 1 คน');
+      notify.warning('กรุณาเลือก HR อย่างน้อย 1 คน');
       return;
     }
 
     try {
       setIsAssigning(true);
       const result = await companyService.assignHRToCompany(company.id, selectedHRIds);
-      
+
       if (result.success) {
-        alert(result.message);
+        notify.success(result.message);
         setSelectedHRIds([]);
         loadData();
         onSuccess();
       } else {
-        alert(result.error);
+        notify.error(result.error);
       }
     } catch (error) {
-      alert('เกิดข้อผิดพลาดในการเพิ่ม HR');
+      notify.error('เกิดข้อผิดพลาดในการเพิ่ม HR');
     } finally {
       setIsAssigning(false);
     }
@@ -828,14 +833,14 @@ const CompanyHRManagementModal = ({ company, onClose, onSuccess }) => {
       try {
         const result = await companyService.removeHRFromCompany(company.id, userId);
         if (result.success) {
-          alert(result.message);
+          notify.success(result.message);
           loadData();
           onSuccess();
         } else {
-          alert(result.error);
+          notify.error(result.error);
         }
       } catch (error) {
-        alert('เกิดข้อผิดพลาดในการลบ HR');
+        notify.error('เกิดข้อผิดพลาดในการลบ HR');
       }
     }
   };
@@ -862,7 +867,7 @@ const CompanyHRManagementModal = ({ company, onClose, onSuccess }) => {
   };
 
   // กรอง HR ที่ยังไม่ได้ assign
-  const unassignedHRUsers = availableHRUsers.filter(user => 
+  const unassignedHRUsers = availableHRUsers.filter(user =>
     !hrUsers.some(hr => hr.id === user.id)
   );
 
@@ -961,7 +966,7 @@ const CompanyHRManagementModal = ({ company, onClose, onSuccess }) => {
                           </div>
                         ))}
                       </div>
-                      
+
                       {selectedHRIds.length > 0 && (
                         <div className="assign-hr-actions">
                           <button

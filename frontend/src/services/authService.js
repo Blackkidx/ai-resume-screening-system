@@ -33,6 +33,11 @@ class AuthService {
     sessionStorage.removeItem('user');
   }
 
+  // ลบข้อมูล user จาก sessionStorage
+  removeCurrentUser() {
+    sessionStorage.removeItem('user');
+  }
+
   // ดึงข้อมูล user จาก sessionStorage
   getCurrentUser() {
     const userStr = sessionStorage.getItem('user');
@@ -76,12 +81,21 @@ class AuthService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Registration failed');
+        // FastAPI 422: detail is array [{loc, msg, type}]
+        const detail = data.detail;
+        let errorMsg;
+        if (Array.isArray(detail)) {
+          errorMsg = detail.map(e => e.msg).join(', ');
+        } else {
+          errorMsg = detail || 'Registration failed';
+        }
+        throw new Error(errorMsg);
       }
 
       return {
         success: true,
         data: data,
+        email: data.email || userData.email,
         message: 'สมัครสมาชิกสำเร็จ'
       };
     } catch (error) {
@@ -101,7 +115,8 @@ class AuthService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: credentials.username,
+          // Support both {username} and {identifier} (from Login.jsx)
+          username: credentials.username || credentials.identifier,
           password: credentials.password,
         }),
       });
@@ -109,7 +124,15 @@ class AuthService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Login failed');
+        // FastAPI 422: detail is array [{loc, msg, type}]
+        const detail = data.detail;
+        let errorMsg;
+        if (Array.isArray(detail)) {
+          errorMsg = detail.map(e => e.msg).join(', ');
+        } else {
+          errorMsg = detail || 'Login failed';
+        }
+        throw new Error(errorMsg);
       }
 
       // บันทึก token และข้อมูล user
@@ -228,6 +251,106 @@ class AuthService {
         success: false,
         error: error.message
       };
+    }
+  }
+
+  // ✅ ลืมรหัสผ่าน — ส่ง OTP ทางอีเมล
+  async forgotPassword(email) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Failed to send OTP');
+      return { success: true, message: data.message };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ✅ ยืนยัน OTP สำหรับ register flow (สร้าง user + auto-login)
+  async verifyRegisterOTP(email, otp) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/auth/verify-register-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        const detail = data.detail;
+        const errorMsg = Array.isArray(detail) ? detail.map(e => e.msg).join(', ') : detail || 'OTP verification failed';
+        throw new Error(errorMsg);
+      }
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ✅ ส่ง OTP ใหม่สำหรับ register resend
+  async resendRegisterOTP(email) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/auth/register-resend-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Failed to resend OTP');
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ✅ ยืนยัน OTP (สำหรับ forgot-password)
+  async verifyOTP(email, otp) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'OTP verification failed');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ✅ ส่ง OTP ใหม่ (resend)
+  async resendOTP(email) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Failed to resend OTP');
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ✅ รีเซ็ตรหัสผ่าน
+  async resetPassword(email, resetToken, newPassword) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, reset_token: resetToken, new_password: newPassword }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Failed to reset password');
+      return { success: true, message: data.message };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
   }
 }

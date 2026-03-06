@@ -5,14 +5,15 @@
   position: sticky;
   top: 0;
   z-index: 1000;
-  padding: 0 20px;
+  padding: 0 40px;
 }
 
 .navbar-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 1200px;
+  max-width: 1400px;
+  width: 100%;
   margin: 0 auto;
   height: 70px;
 }
@@ -169,6 +170,7 @@
     opacity: 0;
     transform: translateY(-15px) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -442,14 +444,18 @@
    ================================================================= */
 
 @media (max-width: 768px) {
+  .navbar {
+    padding: 0 20px;
+  }
+
   .navbar-menu {
     gap: 15px;
   }
-  
+
   .navbar-links {
     display: none;
   }
-  
+
   .navbar-logo {
     font-size: 24px;
   }

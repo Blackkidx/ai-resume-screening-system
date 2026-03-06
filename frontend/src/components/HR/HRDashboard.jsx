@@ -4,11 +4,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import companyService from '../../services/companyService';
 import jobService from '../../services/jobService';
+import { useNotification } from '../../contexts/NotificationContext';
 import '../../styles/hr.css';
 
 const HRDashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const notify = useNotification();
 
   const [companyInfo, setCompanyInfo] = useState(null);
   const [jobStats, setJobStats] = useState(null);
@@ -18,7 +20,7 @@ const HRDashboard = () => {
   useEffect(() => {
     if (!isAuthenticated()) { navigate('/login'); return; }
     if (!user || (user.user_type !== 'HR' && user.user_type !== 'Admin')) {
-      alert('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
+      notify.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
       navigate('/');
       return;
     }

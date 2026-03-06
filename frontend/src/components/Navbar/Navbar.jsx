@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import NotificationBell from './NotificationBell';
 import '../../styles/navbar.css';
 
@@ -15,6 +16,8 @@ const Navbar = () => {
     getDisplayName,
     getProfileImageUrl
   } = useAuth();
+
+  const notify = useNotification();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -40,12 +43,12 @@ const Navbar = () => {
       setIsDropdownOpen(false);
 
       if (result.success) {
-        alert('ออกจากระบบเรียบร้อยแล้ว');
+        notify.success('ออกจากระบบเรียบร้อยแล้ว');
         navigate('/', { replace: true });
       }
     } catch (error) {
       console.error('Logout error:', error);
-      alert('เกิดข้อผิดพลาดในการออกจากระบบ');
+      notify.error('เกิดข้อผิดพลาดในการออกจากระบบ');
     }
   };
 
@@ -151,7 +154,9 @@ const Navbar = () => {
                           display: profileImageUrl ? 'none' : 'flex'
                         }}
                       >
-                        {getInitials(user?.full_name)}
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+                          <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5S7 4.24 7 7s2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v2h20v-2c0-3.33-6.67-5-10-5z" />
+                        </svg>
                       </div>
                     </div>
                     <span className="user-name">
@@ -185,7 +190,9 @@ const Navbar = () => {
                               />
                             ) : (
                               <div className="user-avatar-large-placeholder">
-                                {getInitials(user?.full_name)}
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
+                                  <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5S7 4.24 7 7s2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v2h20v-2c0-3.33-6.67-5-10-5z" />
+                                </svg>
                               </div>
                             )}
                           </div>

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import jobService from '../../services/jobService';
 import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
 import '../../styles/jobDetail.css';
@@ -12,6 +13,7 @@ const JobDetail = () => {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const notify = useNotification();
 
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -61,9 +63,9 @@ const JobDetail = () => {
       setAnalyzingMatch(true);
       const result = await jobService.analyzeMatch(jobId);
       if (result.success) setMatchAnalysis(result.data);
-      else alert(result.error);
+      else notify.error(result.error);
     } catch {
-      alert('ไม่สามารถวิเคราะห์ความเหมาะสมได้');
+      notify.error('ไม่สามารถวิเคราะห์ความเหมาะสมได้');
     } finally {
       setAnalyzingMatch(false);
     }
@@ -77,7 +79,7 @@ const JobDetail = () => {
       return ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(ext) && f.size <= 10 * 1024 * 1024;
     });
     if (certFiles.length + valid.length > 3) {
-      alert('สามารถแนบใบเซอร์ได้สูงสุด 3 ไฟล์');
+      notify.warning('สามารถแนบใบเซอร์ได้สูงสุด 3 ไฟล์');
       return;
     }
     setCertFiles(prev => [...prev, ...valid]);
@@ -136,10 +138,10 @@ const JobDetail = () => {
           navigate('/student/applications');
         }, 2000);
       } else {
-        alert(result.error || 'สมัครงานไม่สำเร็จ');
+        notify.error(result.error || 'สมัครงานไม่สำเร็จ');
       }
     } catch (err) {
-      alert(err.message || 'เกิดข้อผิดพลาด');
+      notify.error(err.message || 'เกิดข้อผิดพลาด');
     } finally {
       setApplying(false);
     }

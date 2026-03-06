@@ -40,13 +40,11 @@ class UserRegisterRequest(BaseModel):
     @validator('password')
     def password_must_be_strong(cls, v):
         if len(v) < 8:
-            raise ValueError('Password must be at least 8 characters')
-        if not re.search(r"[A-Z]", v):
-            raise ValueError('Password must contain at least one uppercase letter')
-        if not re.search(r"[a-z]", v):
-            raise ValueError('Password must contain at least one lowercase letter')
+            raise ValueError('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร')
+        if not re.search(r"[a-zA-Z]", v):
+            raise ValueError('รหัสผ่านต้องมีตัวอักษรอย่างน้อย 1 ตัว')
         if not re.search(r"\d", v):
-            raise ValueError('Password must contain at least one number')
+            raise ValueError('รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 ตัว')
         return v
 
 class UserLoginRequest(BaseModel):
@@ -85,13 +83,11 @@ class ChangePasswordRequest(BaseModel):
     @validator('new_password')
     def password_must_be_strong(cls, v):
         if len(v) < 8:
-            raise ValueError('Password must be at least 8 characters')
-        if not re.search(r"[A-Z]", v):
-            raise ValueError('Password must contain at least one uppercase letter')
-        if not re.search(r"[a-z]", v):
-            raise ValueError('Password must contain at least one lowercase letter')
+            raise ValueError('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร')
+        if not re.search(r"[a-zA-Z]", v):
+            raise ValueError('รหัสผ่านต้องมีตัวอักษรอย่างน้อย 1 ตัว')
         if not re.search(r"\d", v):
-            raise ValueError('Password must contain at least one number')
+            raise ValueError('รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 ตัว')
         return v
 
 # =============================================================================

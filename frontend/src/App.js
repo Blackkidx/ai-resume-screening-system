@@ -2,10 +2,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import Navbar from './components/Navbar/Navbar';
 import Homepage from './components/Homepage/Homepage';
 import Login from './components/Login/Login';
 import Register from './components/Register/Register';
+import OTPVerification from './components/Auth/OTPVerification';
+import ForgotPassword from './components/Auth/ForgotPassword';
+import ResetPassword from './components/Auth/ResetPassword';
 import Companies from './components/Companies/Companies';
 import JobDetail from './components/Jobs/JobDetail';
 import AdminDashboard from './components/Admin/AdminDashboard';
@@ -20,51 +24,59 @@ import CompanyProfile from './components/HR/CompanyProfile';
 import ApplicantSearch from './components/HR/ApplicantSearch';
 import Profile from './components/Profile/Profile';
 import ResumeUpload from './components/Student/ResumeUpload';
+import CertificateUpload from './components/Student/CertificateUpload';
 import StudentDashboard from './components/Student/StudentDashboard';
 import NotReadyJobs from './components/Student/NotReadyJobs';
 import MyApplications from './components/Student/MyApplications';
 import './styles/global.css';
+import './styles/toast.css';
 
 function App() {
   return (
     <div className="App">
       <AuthProvider>
-        <Router>
-          <Navbar />
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Homepage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/companies" element={<Companies />} />
+        <NotificationProvider>
+          <Router>
+            <Navbar />
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<Homepage />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/verify-otp" element={<OTPVerification />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/companies" element={<Companies />} />
 
-            {/* Job Routes - ต้อง login */}
-            <Route path="/jobs/:jobId" element={<JobDetail />} />
+              {/* Job Routes - ต้อง login */}
+              <Route path="/jobs/:jobId" element={<JobDetail />} />
 
-            {/* Admin Routes */}
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/companies" element={<CompanyManagement />} />
+              {/* Admin Routes */}
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/companies" element={<CompanyManagement />} />
 
-            {/* HR Routes */}
-            <Route path="/hr/dashboard" element={<HRDashboard />} />
-            <Route path="/hr/jobs/create" element={<JobCreation />} />
-            <Route path="/hr/jobs/:jobId/edit" element={<JobEdit />} />
-            <Route path="/hr/jobs" element={<JobManagement />} />
-            <Route path="/hr/jobs/:jobId/applicants" element={<ApplicantReview />} />
-            <Route path="/hr/analytics" element={<HRAnalytics />} />
-            <Route path="/hr/company" element={<CompanyProfile />} />
-            <Route path="/hr/search" element={<ApplicantSearch />} />
+              {/* HR Routes */}
+              <Route path="/hr/dashboard" element={<HRDashboard />} />
+              <Route path="/hr/jobs/create" element={<JobCreation />} />
+              <Route path="/hr/jobs/:jobId/edit" element={<JobEdit />} />
+              <Route path="/hr/jobs" element={<JobManagement />} />
+              <Route path="/hr/jobs/:jobId/applicants" element={<ApplicantReview />} />
+              <Route path="/hr/analytics" element={<HRAnalytics />} />
+              <Route path="/hr/company" element={<CompanyProfile />} />
+              <Route path="/hr/search" element={<ApplicantSearch />} />
 
-            {/* User Routes */}
-            <Route path="/profile" element={<Profile />} />
+              {/* User Routes */}
+              <Route path="/profile" element={<Profile />} />
 
-            {/* Student Routes */}
-            <Route path="/student/dashboard" element={<StudentDashboard />} />
-            <Route path="/student/resume" element={<ResumeUpload />} />
-            <Route path="/student/not-ready" element={<NotReadyJobs />} />
-            <Route path="/student/applications" element={<MyApplications />} />
-          </Routes>
-        </Router>
+              {/* Student Routes */}
+              <Route path="/student/dashboard" element={<StudentDashboard />} />
+              <Route path="/student/resume" element={<ResumeUpload />} />
+              <Route path="/student/not-ready" element={<NotReadyJobs />} />
+              <Route path="/student/certificates" element={<CertificateUpload />} />
+              <Route path="/student/applications" element={<MyApplications />} />
+            </Routes>
+          </Router>
+        </NotificationProvider>
       </AuthProvider>
     </div>
   );

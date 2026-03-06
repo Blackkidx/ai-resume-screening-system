@@ -1,6 +1,7 @@
 // frontend/src/components/HR/JobManagement.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
 import '../../styles/job-management.css';
@@ -8,6 +9,7 @@ import '../../styles/job-management.css';
 const JobManagement = () => {
   const { user, isAuthenticated, getAuthHeaders } = useAuth();
   const navigate = useNavigate();
+  const notify = useNotification();
 
   // States
   const [jobs, setJobs] = useState([]);
@@ -32,7 +34,7 @@ const JobManagement = () => {
     }
 
     if (!user || (user.user_type !== 'HR' && user.user_type !== 'Admin')) {
-      alert('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
+      notify.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
       navigate('/');
       return;
     }
@@ -98,14 +100,14 @@ const JobManagement = () => {
       if (response.ok) {
         setJobs(jobs.filter(job => job.id !== jobId));
         setShowDeleteModal(null);
-        alert('ลบตำแหน่งงานเรียบร้อยแล้ว');
+        notify.success('ลบตำแหน่งงานเรียบร้อยแล้ว');
       } else {
         const errorData = await response.json();
-        alert(errorData.detail || 'เกิดข้อผิดพลาดในการลบตำแหน่งงาน');
+        notify.error(errorData.detail || 'เกิดข้อผิดพลาดในการลบตำแหน่งงาน');
       }
     } catch (error) {
       console.error('Error deleting job:', error);
-      alert('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
+      notify.error('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
     } finally {
       setDeleteLoading(false);
     }
@@ -133,11 +135,11 @@ const JobManagement = () => {
         ));
       } else {
         const errorData = await response.json();
-        alert(errorData.detail || 'เกิดข้อผิดพลาดในการอัพเดตสถานะ');
+        notify.error(errorData.detail || 'เกิดข้อผิดพลาดในการอัพเดตสถานะ');
       }
     } catch (error) {
       console.error('Error toggling job status:', error);
-      alert('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
+      notify.error('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
     }
   };
 

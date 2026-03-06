@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import jobService from '../../services/jobService';
 import '../../styles/student-dashboard.css';
 import '../../styles/my-applications.css';
@@ -169,6 +170,7 @@ function normalizeAiScore(val) {
 const MyApplications = () => {
     const { isAuthenticated } = useAuth();
     const navigate = useNavigate();
+    const notify = useNotification();
 
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -183,7 +185,7 @@ const MyApplications = () => {
             if (result.success) {
                 loadApplications();
             } else {
-                alert(result.error);
+                notify.error(result.error);
             }
         } catch (error) {
             console.error('Error confirming interview', error);
@@ -193,7 +195,7 @@ const MyApplications = () => {
     const handleRequestReschedule = async (appId) => {
         try {
             if (!rescheduleData.reason) {
-                alert('กรุณาระบุเหตุผลในการขอเลื่อน');
+                notify.warning('กรุณาระบุเหตุผลในการขอเลื่อน');
                 return;
             }
             const result = await jobService.respondInterview(appId, {
@@ -206,7 +208,7 @@ const MyApplications = () => {
                 setRescheduleData({ reason: '', preferred_date: '' });
                 loadApplications();
             } else {
-                alert(result.error);
+                notify.error(result.error);
             }
         } catch (error) {
             console.error('Error requesting reschedule', error);

@@ -3,10 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
+import { useNotification } from '../../contexts/NotificationContext';
 import '../../styles/job-creation.css';
 
 const JobCreation = () => {
   const { user, isAuthenticated } = useAuth();
+  const notify = useNotification();
 
   const getAuthHeaders = () => {
     const token = sessionStorage.getItem('auth_token');
@@ -91,7 +93,7 @@ const JobCreation = () => {
     }
 
     if (!user || (user.user_type !== 'HR' && user.user_type !== 'Admin')) {
-      alert('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
+      notify.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
       navigate('/');
       return;
     }

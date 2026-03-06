@@ -111,26 +111,35 @@ async def add_security_headers(request: Request, call_next):
 
 @app.middleware("http")
 async def verify_uploads_access(request: Request, call_next):
-    """ตรวจสอบสิทธิ์การเข้าถึงไฟล์ Static"""
-    if request.url.path.startswith("/uploads"):
+    """ตรวจสอบสิทธิ์เฉพาะ /uploads/resumes (ไฟล์ resume ต้อง login)
+       /uploads/profiles และ /uploads/companies เปิดสาธารณะ (browser img tag ไม่ส่ง header)
+    """
+    if request.url.path.startswith("/uploads/resumes"):
         if request.method == "OPTIONS":
             return await call_next(request)
-            
+
         token = None
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
         elif "token" in request.query_params:
             token = request.query_params["token"]
-            
+
         if not token:
-            return JSONResponse(status_code=401, content={"detail": "Unauthorized access to static files. Please provide a token."})
-            
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized. Login required to access resume files."}
+            )
+
         from core.auth import validate_token
         if not validate_token(token):
-            return JSONResponse(status_code=401, content={"detail": "Invalid or expired token."})
-            
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or expired token."}
+            )
+
     return await call_next(request)
+
 
 # =============================================================================
 # 📋 INCLUDE ROUTERS - เพิ่ม API endpoints

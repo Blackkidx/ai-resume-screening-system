@@ -164,8 +164,35 @@ class ProfileService {
   // Validate phone number
   validatePhone(phone) {
     if (!phone) return true; // Optional field
-    const phoneRegex = /^[0-9-+\s()]+$/;
-    return phoneRegex.test(phone) && phone.length >= 9;
+    const digits = phone.replace(/[-\s()]/g, '');
+    return /^[0-9]+$/.test(digits) && digits.length >= 9 && digits.length <= 10;
+  }
+
+  // Format phone number to Thai pattern: 0XX-XXX-XXXX
+  formatThaiPhone(phone) {
+    if (!phone) return '-';
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length === 10) {
+      return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+    if (digits.length === 9) {
+      return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+    }
+    return phone; // Return as-is if unexpected length
+  }
+
+  // Auto-format phone input as user types: inserts dashes
+  autoFormatPhoneInput(value) {
+    const digits = value.replace(/\D/g, '').slice(0, 10);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+
+  // Strip formatting → raw digits for API
+  parsePhoneDigits(formatted) {
+    if (!formatted) return '';
+    return formatted.replace(/\D/g, '');
   }
 
   // Validate image file

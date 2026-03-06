@@ -1,6 +1,7 @@
 // frontend/src/components/Admin/AdminDashboard.jsx - Updated with Company Management Tab
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 import adminService from '../../services/adminService';
 //import companyService from '../../services/companyService';
@@ -11,20 +12,21 @@ import '../../styles/admin.css';
 const AdminDashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  
+  const notify = useNotification();
+
   const [activeTab, setActiveTab] = useState('overview'); // overview, users, companies
   const [dashboardData, setDashboardData] = useState(null);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [usersLoading, setUsersLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   // Pagination และ Filter states
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [userTypeFilter, setUserTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  
+
   // Modal states
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -53,7 +55,7 @@ const AdminDashboard = () => {
     }
 
     if (!user || (user.user_type !== 'Admin' && !user.roles?.includes('Admin'))) {
-      alert('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
+      notify.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
       navigate('/');
       return;
     }
@@ -69,7 +71,7 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       const result = await adminService.getDashboardStats();
-      
+
       if (result.success) {
         setDashboardData(result.data);
       } else {
@@ -93,7 +95,7 @@ const AdminDashboard = () => {
         user_type: userType,
         is_active: status === '' ? null : status === 'active'
       });
-      
+
       if (result.success) {
         setUsers(result.data);
       } else {
@@ -115,10 +117,10 @@ const AdminDashboard = () => {
         setSelectedUser(result.data);
         setShowEditModal(true);
       } else {
-        alert('เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้: ' + result.error);
+        notify.error('เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้: ' + result.error);
       }
     } catch (error) {
-      alert('เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้');
+      notify.error('เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้');
     } finally {
       setModalLoading(false);
     }
@@ -130,14 +132,14 @@ const AdminDashboard = () => {
       try {
         const result = await adminService.deleteUser(userId);
         if (result.success) {
-          alert('ลบผู้ใช้สำเร็จ');
+          notify.success('ลบผู้ใช้สำเร็จ');
           loadUsers(currentPage, searchTerm, userTypeFilter, statusFilter);
           loadDashboardData();
         } else {
-          alert(result.error);
+          notify.error(result.error);
         }
       } catch (error) {
-        alert('เกิดข้อผิดพลาดในการลบผู้ใช้');
+        notify.error('เกิดข้อผิดพลาดในการลบผู้ใช้');
       }
     }
   };
@@ -169,19 +171,19 @@ const AdminDashboard = () => {
 
         {/* Tabs Navigation */}
         <div className="dashboard-tabs">
-          <button 
+          <button
             className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
             📊 ภาพรวม
           </button>
-          <button 
+          <button
             className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => setActiveTab('users')}
           >
             👥 จัดการผู้ใช้
           </button>
-          <button 
+          <button
             className={`tab-button ${activeTab === 'companies' ? 'active' : ''}`}
             onClick={() => setActiveTab('companies')}
           >
@@ -204,7 +206,7 @@ const AdminDashboard = () => {
                       <div className="stat-number">{dashboardData.total_users}</div>
                     </div>
                   </div>
-                  
+
                   <div className="stat-card students">
                     <div className="stat-icon">🎓</div>
                     <div className="stat-content">
@@ -212,7 +214,7 @@ const AdminDashboard = () => {
                       <div className="stat-number">{dashboardData.student_count}</div>
                     </div>
                   </div>
-                  
+
                   <div className="stat-card hr">
                     <div className="stat-icon">💼</div>
                     <div className="stat-content">
@@ -220,7 +222,7 @@ const AdminDashboard = () => {
                       <div className="stat-number">{dashboardData.hr_count}</div>
                     </div>
                   </div>
-                  
+
                   <div className="stat-card admins">
                     <div className="stat-icon">👑</div>
                     <div className="stat-content">
@@ -235,7 +237,7 @@ const AdminDashboard = () => {
               <div className="quick-actions">
                 <h3>การดำเนินการด่วน</h3>
                 <div className="actions-grid">
-                  <button 
+                  <button
                     className="action-card"
                     onClick={() => setActiveTab('users')}
                   >
@@ -245,8 +247,8 @@ const AdminDashboard = () => {
                       <p>เพิ่ม แก้ไข ลบผู้ใช้</p>
                     </div>
                   </button>
-                  
-                  <button 
+
+                  <button
                     className="action-card"
                     onClick={() => setActiveTab('companies')}
                   >
@@ -256,8 +258,8 @@ const AdminDashboard = () => {
                       <p>เพิ่มบริษัทและกำหนด HR</p>
                     </div>
                   </button>
-                  
-                  <button 
+
+                  <button
                     className="action-card"
                     onClick={() => setShowCreateModal(true)}
                   >
@@ -277,7 +279,7 @@ const AdminDashboard = () => {
             <div className="users-tab">
               <div className="section-header">
                 <h2>👥 จัดการผู้ใช้</h2>
-                <button 
+                <button
                   className="btn btn-primary"
                   onClick={() => setShowCreateModal(true)}
                 >
@@ -301,7 +303,7 @@ const AdminDashboard = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <select
                   value={userTypeFilter}
                   onChange={(e) => setUserTypeFilter(e.target.value)}
@@ -312,7 +314,7 @@ const AdminDashboard = () => {
                   <option value="HR">HR</option>
                   <option value="Admin">Admin</option>
                 </select>
-                
+
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -322,15 +324,15 @@ const AdminDashboard = () => {
                   <option value="active">เปิดใช้งาน</option>
                   <option value="inactive">ปิดใช้งาน</option>
                 </select>
-                
-                <button 
+
+                <button
                   onClick={() => {
                     setSearchTerm('');
                     setUserTypeFilter('');
                     setStatusFilter('');
                     setCurrentPage(1);
                     loadUsers(1, '', '', '');
-                  }} 
+                  }}
                   className="btn btn-secondary"
                 >
                   ล้างตัวกรอง
@@ -382,7 +384,7 @@ const AdminDashboard = () => {
                             <td>{formatDate(user.last_login)}</td>
                             <td>
                               <div className="action-buttons">
-                                <button 
+                                <button
                                   className="btn-action edit"
                                   onClick={() => handleEditUser(user.id)}
                                   title="แก้ไข"
@@ -390,7 +392,7 @@ const AdminDashboard = () => {
                                 >
                                   ✏️
                                 </button>
-                                <button 
+                                <button
                                   className="btn-action delete"
                                   onClick={() => handleDeleteUser(user.id, user.username)}
                                   title="ลบ"
@@ -404,8 +406,8 @@ const AdminDashboard = () => {
                       ) : (
                         <tr>
                           <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
-                            {searchTerm || userTypeFilter || statusFilter 
-                              ? 'ไม่พบผู้ใช้ที่ตรงกับเงื่อนไขการค้นหา' 
+                            {searchTerm || userTypeFilter || statusFilter
+                              ? 'ไม่พบผู้ใช้ที่ตรงกับเงื่อนไขการค้นหา'
                               : 'ไม่มีข้อมูลผู้ใช้'}
                           </td>
                         </tr>
@@ -418,7 +420,7 @@ const AdminDashboard = () => {
               {/* Pagination */}
               {users.length > 0 && (
                 <div className="pagination">
-                  <button 
+                  <button
                     className="btn btn-secondary"
                     disabled={currentPage === 1}
                     onClick={() => {
@@ -429,10 +431,10 @@ const AdminDashboard = () => {
                   >
                     ← ก่อนหน้า
                   </button>
-                  
+
                   <span className="page-info">หน้า {currentPage}</span>
-                  
-                  <button 
+
+                  <button
                     className="btn btn-secondary"
                     disabled={users.length < 10}
                     onClick={() => {
@@ -491,6 +493,7 @@ const AdminDashboard = () => {
 
 // Edit User Modal Component (same as before)
 const EditUserModal = ({ user, onClose, onSuccess }) => {
+  const notify = useNotification();
   const [formData, setFormData] = useState({
     username: user.username || '',
     full_name: user.full_name || '',
@@ -523,7 +526,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
           setLoading(false);
           return;
         }
-        
+
         if (formData.new_password !== formData.confirm_password) {
           setError('รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน');
           setLoading(false);
@@ -547,7 +550,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
       const result = await adminService.updateUser(user.id, updateData);
 
       if (result.success) {
-        alert('อัปเดตข้อมูลผู้ใช้สำเร็จ');
+        notify.success('อัปเดตข้อมูลผู้ใช้สำเร็จ');
         onSuccess();
       } else {
         setError(result.error);
@@ -759,6 +762,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
 
 // Create User Modal Component (same as before)
 const CreateUserModal = ({ onClose, onSuccess }) => {
+  const notify = useNotification();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -794,7 +798,7 @@ const CreateUserModal = ({ onClose, onSuccess }) => {
       });
 
       if (result.success) {
-        alert('สร้างผู้ใช้ใหม่สำเร็จ');
+        notify.success('สร้างผู้ใช้ใหม่สำเร็จ');
         onSuccess();
       } else {
         setError(result.error);

@@ -82,7 +82,13 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  // ฟังก์ชัน login - รักษา format เดิม
+  // ✅ ใช้สำหรับ auto-login หลังยืนยัน OTP — อัปเดท React state ทันที
+  const loginWithData = (tokenData) => {
+    authService.setToken(tokenData.access_token);
+    authService.setCurrentUser(tokenData.user_info);
+    setUser(tokenData.user_info);
+  };
+
   const login = async (credentials) => {
     try {
       const result = await authService.login(credentials);
@@ -90,7 +96,6 @@ export const AuthProvider = ({ children }) => {
       if (result.success) {
         setUser(result.data.user_info);
 
-        // 🎯 ดึงข้อมูลโปรไฟล์ล่าสุดหลัง login
         try {
           const profileData = await profileService.getProfile();
           const updatedUser = {
@@ -105,55 +110,74 @@ export const AuthProvider = ({ children }) => {
           authService.setCurrentUser(updatedUser);
         } catch (profileError) {
           console.warn('Failed to fetch profile after login:', profileError);
-          // ใช้ข้อมูลจาก login response
         }
 
-        return {
-          success: true,
-          message: 'เข้าสู่ระบบเรียบร้อยแล้ว',
-          data: result.data
-        };
+        return { success: true, message: 'เข้าสู่ระบบเรียบร้อยแล้ว', data: result.data };
       }
 
-      // ส่งคืน error ในรูปแบบเดิม
       return {
         success: false,
-        error: result.error || result.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ'
+        error: result.error || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ',
+        needsVerification: result.needsVerification || false,
+        email: result.email || ''
       };
-
     } catch (error) {
-      console.error('Login error:', error);
-      return {
-        success: false,
-        error: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ'
-      };
+      return { success: false, error: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' };
     }
   };
 
-  // ฟังก์ชัน register - รักษา format เดิม
+  const verifyOTP = async (email, otp) => {
+    try {
+      const result = await authService.verifyOTP(email, otp);
+      if (result.success) {
+        setUser(result.data.user_info);
+        authService.setCurrentUser(result.data.user_info);
+        return { success: true, data: result.data };
+      }
+      return { success: false, error: result.error };
+    } catch (error) {
+      return { success: false, error: 'เกิดข้อผิดพลาดในการยืนยัน OTP' };
+    }
+  };
+
+  const resendOTP = async (email) => {
+    try {
+      const result = await authService.resendOTP(email);
+      return result.success
+        ? { success: true }
+        : { success: false, error: result.error };
+    } catch (error) {
+      return { success: false, error: 'เกิดข้อผิดพลาด' };
+    }
+  };
+
+  const forgotPassword = async (email) => {
+    try {
+      const result = await authService.forgotPassword(email);
+      return result.success ? { success: true } : { success: false, error: result.error };
+    } catch (error) {
+      return { success: false, error: 'เกิดข้อผิดพลาด' };
+    }
+  };
+
+  const resetPassword = async (email, otp, newPassword) => {
+    try {
+      const result = await authService.resetPassword(email, otp, newPassword);
+      return result.success ? { success: true } : { success: false, error: result.error };
+    } catch (error) {
+      return { success: false, error: 'เกิดข้อผิดพลาด' };
+    }
+  };
+
   const register = async (userData) => {
     try {
       const result = await authService.register(userData);
-
       if (result.success) {
-        return {
-          success: true,
-          message: 'สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ',
-          data: result.data
-        };
+        return { success: true, email: result.email, data: result.data };
       }
-
-      return {
-        success: false,
-        error: result.error || result.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก'
-      };
-
+      return { success: false, error: result.error || 'เกิดข้อผิดพลาดในการสมัครสมาชิก' };
     } catch (error) {
-      console.error('Register error:', error);
-      return {
-        success: false,
-        error: 'เกิดข้อผิดพลาดในการสมัครสมาชิก'
-      };
+      return { success: false, error: 'เกิดข้อผิดพลาดในการสมัครสมาชิก' };
     }
   };
 
@@ -266,30 +290,25 @@ export const AuthProvider = ({ children }) => {
     };
   };
 
-  // Context value
   const value = {
-    // Core auth data
     user,
     loading,
-
-    // Auth methods - รักษา format เดิม
     isAuthenticated,
     hasRole,
     login,
+    loginWithData,
     register,
     logout,
-
-    // Profile methods
+    verifyOTP,
+    resendOTP,
+    forgotPassword,
+    resetPassword,
     updateUser,
     syncProfile,
-
-    // Helper methods
     getInitials,
     getDisplayName,
     getProfileImageUrl,
     getAuthHeaders,
-
-    // Computed properties
     hasProfileImage: !!getProfileImageUrl(),
     fullName: user?.full_name || '',
     email: user?.email || '',

@@ -4,12 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_BASE_URL } from '../../config';
 import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
+import { useNotification } from '../../contexts/NotificationContext';
 import '../../styles/companies.css';
 
 const Companies = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  
+  const notify = useNotification();
+
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -64,7 +66,7 @@ const Companies = () => {
 
   const handleViewDetails = (jobId) => {
     if (!isAuthenticated()) {
-      alert('กรุณาเข้าสู่ระบบเพื่อดูรายละเอียดงาน');
+      notify.warning('กรุณาเข้าสู่ระบบเพื่อดูรายละเอียดงาน');
       navigate('/login', { state: { from: { pathname: `/jobs/${jobId}` } } });
       return;
     }
@@ -74,7 +76,7 @@ const Companies = () => {
 
   const handleApply = (jobId) => {
     if (!isAuthenticated()) {
-      alert('กรุณาเข้าสู่ระบบเพื่อสมัครงาน');
+      notify.warning('กรุณาเข้าสู่ระบบเพื่อสมัครงาน');
       navigate('/login', { state: { from: { pathname: '/companies' } } });
       return;
     }
@@ -84,12 +86,12 @@ const Companies = () => {
 
   const handleContact = (jobId) => {
     if (!isAuthenticated()) {
-      alert('กรุณาเข้าสู่ระบบเพื่อติดต่อบริษัท');
+      notify.warning('กรุณาเข้าสู่ระบบเพื่อติดต่อบริษัท');
       navigate('/login', { state: { from: { pathname: '/companies' } } });
       return;
     }
     // Show contact information or open modal
-    alert('ฟีเจอร์ติดต่อบริษัทกำลังพัฒนา');
+    notify.info('ฟีเจอร์ติดต่อบริษัทกำลังพัฒนา');
   };
 
   if (loading) {
@@ -136,7 +138,7 @@ const Companies = () => {
           <div className="no-results">
             <p>😕 ไม่พบตำแหน่งงานที่คุณค้นหา</p>
             {searchTerm && (
-              <button 
+              <button
                 onClick={() => {
                   setSearchTerm('');
                   setSearchInput('');
@@ -158,51 +160,51 @@ const Companies = () => {
                   {job.is_active ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
                 </span>
               </div>
-              
+
               <div className="company-details">
                 <h4 className="position">{job.title}</h4>
-                
+
                 {job.location && (
                   <p className="location">📍 {job.location}</p>
                 )}
-                
+
                 {job.salary_min && job.salary_max && (
                   <p className="salary">
                     💰 {job.salary_min.toLocaleString()} - {job.salary_max.toLocaleString()} บาท/เดือน
                   </p>
                 )}
-                
+
                 {job.job_type && (
                   <p className="job-type">
                     💼 {job.job_type}
                   </p>
                 )}
-                
+
                 {job.description && (
                   <p className="description">
-                    {job.description.length > 100 
-                      ? `${job.description.substring(0, 100)}...` 
+                    {job.description.length > 100
+                      ? `${job.description.substring(0, 100)}...`
                       : job.description}
                   </p>
                 )}
-                
+
                 {job.applications_count !== undefined && (
                   <p className="applications">
                     👥 ผู้สมัคร: {job.applications_count} คน
                   </p>
                 )}
               </div>
-              
+
               <div className="company-actions">
-                <button 
+                <button
                   className="view-details-button"
                   onClick={() => handleViewDetails(job.id)}
                 >
                   ดูรายละเอียด
                 </button>
-                
+
                 {job.is_active ? (
-                  <button 
+                  <button
                     className="apply-button"
                     onClick={() => handleApply(job.id)}
                   >
@@ -213,8 +215,8 @@ const Companies = () => {
                     ปิดรับสมัคร
                   </button>
                 )}
-                
-                <button 
+
+                <button
                   className="contact-button"
                   onClick={() => handleContact(job.id)}
                 >

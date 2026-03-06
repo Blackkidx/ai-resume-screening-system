@@ -1,7 +1,9 @@
 // frontend/src/components/Profile/NewChangePassword.jsx
 import React, { useState } from 'react';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const ChangePassword = ({ profileService }) => {
+  const notify = useNotification();
   const [formData, setFormData] = useState({
     current_password: '',
     new_password: '',
@@ -44,7 +46,7 @@ const ChangePassword = ({ profileService }) => {
     if (name === 'confirm_password' || (name === 'new_password' && formData.confirm_password)) {
       const newPass = name === 'new_password' ? value : formData.new_password;
       const confirmPass = name === 'confirm_password' ? value : formData.confirm_password;
-      
+
       if (confirmPass && newPass !== confirmPass) {
         setErrors(prev => ({
           ...prev,
@@ -161,7 +163,7 @@ const ChangePassword = ({ profileService }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -172,8 +174,8 @@ const ChangePassword = ({ profileService }) => {
       // เปลี่ยนรหัสผ่าน
       await profileService.changePassword(formData);
 
-      alert('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว');
-      
+      notify.success('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว');
+
       // Reset form
       setFormData({
         current_password: '',
@@ -188,7 +190,7 @@ const ChangePassword = ({ profileService }) => {
       if (error.message.includes('current password')) {
         setErrors({ current_password: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' });
       } else {
-        alert(`เกิดข้อผิดพลาด: ${error.message}`);
+        notify.error(`เกิดข้อผิดพลาด: ${error.message}`);
       }
     } finally {
       setLoading(false);
@@ -224,13 +226,13 @@ const ChangePassword = ({ profileService }) => {
               >
                 {showPasswords.current ? (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                    <line x1="1" y1="1" x2="23" y2="23"/>
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
                   </svg>
                 ) : (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
                   </svg>
                 )}
               </button>
@@ -261,13 +263,13 @@ const ChangePassword = ({ profileService }) => {
               >
                 {showPasswords.new ? (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                    <line x1="1" y1="1" x2="23" y2="23"/>
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
                   </svg>
                 ) : (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
                   </svg>
                 )}
               </button>
@@ -275,14 +277,14 @@ const ChangePassword = ({ profileService }) => {
             {errors.new_password && (
               <div className="new-password-error">{errors.new_password}</div>
             )}
-            
+
             {/* Password Strength Indicator */}
             {formData.new_password && (
               <div className="password-strength-indicator">
                 <div className="strength-bar">
-                  <div 
-                    className="strength-fill" 
-                    style={{ 
+                  <div
+                    className="strength-fill"
+                    style={{
                       width: `${(passwordStrength.score / 5) * 100}%`,
                       backgroundColor: getPasswordStrengthColor()
                     }}
@@ -323,13 +325,13 @@ const ChangePassword = ({ profileService }) => {
               >
                 {showPasswords.confirm ? (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                    <line x1="1" y1="1" x2="23" y2="23"/>
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
                   </svg>
                 ) : (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
                   </svg>
                 )}
               </button>
@@ -337,22 +339,22 @@ const ChangePassword = ({ profileService }) => {
             {errors.confirm_password && (
               <div className="new-password-error">{errors.confirm_password}</div>
             )}
-            
+
             {/* Password Match Indicator */}
             {formData.confirm_password && (
               <div className="password-match-indicator">
                 {formData.new_password === formData.confirm_password ? (
                   <div className="match-success">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <polyline points="20,6 9,17 4,12"/>
+                      <polyline points="20,6 9,17 4,12" />
                     </svg>
                     รหัสผ่านตรงกัน
                   </div>
                 ) : (
                   <div className="match-error">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <line x1="18" y1="6" x2="6" y2="18"/>
-                      <line x1="6" y1="6" x2="18" y2="18"/>
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
                     รหัสผ่านไม่ตรงกัน
                   </div>
@@ -368,7 +370,7 @@ const ChangePassword = ({ profileService }) => {
               disabled={loading || !passwordStrength.isValid || formData.new_password !== formData.confirm_password}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <polyline points="20,6 9,17 4,12"/>
+                <polyline points="20,6 9,17 4,12" />
               </svg>
               {loading ? 'กำลังเปลี่ยนรหัสผ่าน...' : 'บันทึกการเปลี่ยนแปลง'}
             </button>

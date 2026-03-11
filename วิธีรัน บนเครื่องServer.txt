@@ -1,0 +1,48 @@
+🖥️ 1. วิธีรันหน้าบ้าน (Frontend - React)
+เราใช้ PM2 (Process Manager) ในการรันเพื่อให้เว็บทำงานแบบ Background ได้ตลอดเวลา แม้จะปิดหน้าต่าง CMD ไปแล้วก็ตาม
+
+คำสั่งรันครั้งแรก / รันตัวใหม่:
+
+cmd
+# สมมติว่าเอาโฟลเดอร์ build ไปวางไว้ที่:
+# C:\Users\Administrator\Desktop\AI_Resume_Screening\frontend\build
+pm2 serve C:\Users\Administrator\Desktop\AI_Resume_Screening\frontend\build 3000 --spa --name "AI-Resume-Frontend"
+คำสั่งอัปเดตระบบ (เมื่อมีโค้ดใหม่):
+
+โยนโฟลเดอร์ build อันใหม่ไปทับของเดิมที่ Server
+พิมพ์คำสั่ง: pm2 restart AI-Resume-Frontend
+
+🐍 2. วิธีรันหลังบ้าน (Backend - FastAPI)
+เราใช้ Uvicorn คู่กับ PM2 เพื่อให้ API ทำงานพื้นหลังตลอด 24 ชั่วโมงเช่นกัน
+
+คำสั่งรันครั้งแรก / รันตัวใหม่:
+
+powershell
+# 1. เข้าไปที่โฟลเดอร์ Backend
+cd C:\Users\Administrator\Desktop\AI_Resume_Screening\backend
+# 2. จำเป็นต้อง Activate สภาพแวดล้อม (venv) ของ Python ก่อนเสมอ!
+venv\Scripts\activate
+# 3. รัน Uvicorn ผ่าน PM2
+uvicorn main:app --host 0.0.0.0 --port 8000 
+pm2 start "uvicorn main:app --host 0.0.0.0 --port 8000" --name "AI-Resume-Backend"
+คำสั่งอัปเดตระบบ (เมื่อมีโค้ดใหม่ / แบ็คอัปฐานข้อมูล ฯลฯ):
+
+โยนไฟล์ backend (ยกเว้น venv) ไปทับของเดิม
+พิมพ์คำสั่ง: pm2 restart AI-Resume-Backend
+🛠️ 3. คำสั่ง PM2 สามัญประจำเครื่อง (คุมได้ทั้งคู่)
+คุณสามารถใช้คำสั่งพวกนี้จากโฟลเดอร์ไหนของ Server ก็ได้อย่างอิสระ:
+
+ดูสถานะ ว่าเว็บและ API รันอยู่ไหม, กิน RAM เท่าไหร่: 👉 pm2 list (ถ้าขึ้น Status สีเขียว = ปกติ)
+
+ดูระบบกำลังทำงานอะไรอยู่ (ดู Logs / Error สีแดงๆ): 👉 pm2 logs (ดูรวมๆ 15 บรรทัดล่าสุด) 👉 pm2 logs AI-Resume-Backend (เจาะจงดูแค่ฝั่ง API)
+
+ปิดระบบชั่วคราว: 👉 pm2 stop all (ปิดหมดเลย)
+
+💡 สำคัญมาก (ตั้งค่าให้ทำงานอัตโนมัติตอนเปิดเครื่อง Server ใหม่): 👉 pm2 save (เซฟสถานะปัจจุบันเก็บไว้) 👉 pm2 startup (ทำตามที่คอลโซลมันบอกให้ก๊อปปี้ไปวาง)
+
+(เผื่อใช้งานในอนาคตเกี่ยวกับ PM2):
+
+ดูว่ามีเว็บไหนรันอยู่บ้าง: pm2 list
+หยุดเว็บชั่วคราว: pm2 stop AI-Resume-Frontend
+รีบูตเว็บใหม่: pm2 restart AI-Resume-Frontend
+ปิดเว็บและลบออก: pm2 delete AI-Resume-Frontend

@@ -1,0 +1,1540 @@
+# -*- coding: utf-8 -*-
+"""
+Job Management & AI Matching Routes
+
+Endpoints:
+    - CRUD: สร้าง/ดู/แก้ไข/ลบ Job postings (HR/Admin)
+    - AI Recommendations: แนะนำงาน Green/Yellow/Red zone (Student)
+    - Applications: สมัครงาน + ดูผู้สมัคร (Student/HR)
+"""
+
+import logging
+import os
+from datetime import datetime, timezone
+from typing import List, Optional
+
+from bson import ObjectId
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
+
+from core.auth import get_current_user_data, get_current_user_id
+from core.database import get_database
+from core.utils import generate_unique_id
+from services.matching_service import MatchingService
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/jobs", tags=["Jobs"])
+
+# Singleton — โหลด SBERT model ครั้งเดียว ใช้ร่วมกันทุก request
+matching_service = MatchingService()
+
+
+# =============================================================================
+# PYDANTIC MODELS
+# =============================================================================
+
+class JobCreate(BaseModel):
+    """Schema สำหรับสร้าง Job ใหม่"""
+
+    # Basic Information
+    title: str = Field(..., min_length=5, max_length=100)
+    description: str = Field(..., min_length=20, max_length=2000)
+    department: str = Field(..., min_length=2, max_length=100)
+    job_type: str = Field(default="Internship")
+    work_mode: str = Field(default="Onsite")
+    location: str = Field(..., min_length=2, max_length=200)
+
+    # Allowance (เบี้ยเลี้ยง)
+    allowance_amount: Optional[int] = Field(None, ge=0)
+    allowance_type: Optional[str] = None  # "daily" or "monthly"
+
+    # Job Requirements
+    requirements: List[str] = Field(default=[])
+    skills_required: List[str] = Field(..., min_items=1, max_items=20)
+    majors: List[str] = Field(default=["ทุกสาขา"])
+    min_gpa: Optional[float] = Field(None, ge=0.0, le=4.0)
+    student_levels: List[str] = Field(default=["ปี 3", "ปี 4"])
+    experience_required: Optional[int] = Field(default=0, ge=0)
+
+    # Additional Information
+    positions_available: int = Field(default=1, ge=1, le=100)
+    application_deadline: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+    # Legacy fields (backward compatibility)
+    compensation_amount: Optional[int] = Field(None, ge=0)
+    salary_min: Optional[int] = Field(None, ge=0)
+    salary_max: Optional[int] = Field(None, ge=0)
+    duration_months: int = Field(default=4, ge=1, le=12)
+
+
+class JobUpdate(BaseModel):
+    """Schema สำหรับ partial update — ทุก field เป็น Optional"""
+
+    title: Optional[str] = Field(None, min_length=5, max_length=100)
+    description: Optional[str] = Field(None, min_length=20, max_length=2000)
+    department: Optional[str] = Field(None, min_length=2, max_length=100)
+    job_type: Optional[str] = None
+    work_mode: Optional[str] = None
+    location: Optional[str] = Field(None, min_length=2, max_length=200)
+
+    allowance_amount: Optional[int] = Field(None, ge=0)
+    allowance_type: Optional[str] = None
+
+    requirements: Optional[List[str]] = None
+    skills_required: Optional[List[str]] = Field(None, max_items=20)
+    majors: Optional[List[str]] = None
+    min_gpa: Optional[float] = Field(None, ge=0.0, le=4.0)
+    student_levels: Optional[List[str]] = None
+    experience_required: Optional[int] = Field(None, ge=0)
+
+    positions_available: Optional[int] = Field(None, ge=1, le=100)
+    application_deadline: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    is_active: Optional[bool] = None
+
+    compensation_amount: Optional[int] = Field(None, ge=0)
+    salary_min: Optional[int] = Field(None, ge=0)
+    salary_max: Optional[int] = Field(None, ge=0)
+    duration_months: Optional[int] = Field(None, ge=1, le=12)
+
+
+class JobResponse(BaseModel):
+    """Schema สำหรับ response ของ Job"""
+
+    id: str
+    job_code: str
+    title: str
+    description: str
+    company_id: str
+    company_name: str
+
+    department: Optional[str] = None
+    job_type: Optional[str] = None
+    work_mode: Optional[str] = None
+    location: Optional[str] = None
+
+    allowance_amount: Optional[int] = None
+    allowance_type: Optional[str] = None
+
+    requirements: List[str] = []
+    skills_required: List[str]
+    majors: List[str]
+    min_gpa: Optional[float] = None
+    student_levels: List[str]
+    experience_required: Optional[int] = None
+
+    positions_available: Optional[int] = 1
+    application_deadline: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+    compensation_amount: Optional[int] = None
+    salary_min: Optional[int] = None
+    salary_max: Optional[int] = None
+    duration_months: Optional[int] = None
+
+    is_active: bool
+    created_at: str
+    applications_count: int = 0
+
+    # AI matching fields (มีค่าเมื่อ Student request)
+    ai_match_score: Optional[float] = None
+    recommendation_reason: Optional[str] = None
+
+
+class ApplicationCreate(BaseModel):
+    """Schema สำหรับสมัครงาน"""
+
+    cover_letter: Optional[str] = Field(None, max_length=1500)
+    portfolio_url: Optional[str] = None
+    available_start_date: Optional[str] = None
+    certificate_urls: List[str] = Field(default=[], description="URLs ของใบ Certificate ที่แนบมา")
+
+
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+def convert_job_to_requirements(job: dict) -> dict:
+    """
+    แปลง Job document (MongoDB) → format ที่ MatchingService ต้องการ
+
+    Field mapping:
+        majors (List[str])          → majors_required (List[str])  — ใช้ทุกสาขา
+        experience_required (years) → min_experience_months  — ×12
+        skills_required             → skills_required        — pass-through
+        min_gpa                     → min_gpa                — pass-through
+    """
+    majors = job.get("majors", [])
+    majors_required = [m for m in majors if m and m != "ทุกสาขา"]
+
+    experience_years = job.get("experience_required", 0) or 0
+
+    return {
+        "title": job.get("title", ""),
+        "skills_required": job.get("skills_required", []),
+        "majors_required": majors_required,
+        "min_gpa": job.get("min_gpa", 0) or 0,
+        "min_experience_months": experience_years * 12,
+        "required_certifications": [],
+        "preferred_certifications": [],
+    }
+
+
+async def get_resume_features(user_id: str, db, has_cert_files: bool = None) -> Optional[dict]:
+    """
+    ดึง extracted features ของ resume ล่าสุดจาก AI extraction
+
+    Args:
+        user_id: user ID
+        db: database
+        has_cert_files: override cert file status (True/False). If None, auto-detect.
+
+    Returns:
+        dict ที่มี education, skills, projects, experience_months, ...
+        หรือ None ถ้าไม่มี resume / ยังไม่ได้ extract
+    """
+    # 1st try: processed resume without extraction_error (same as matching.py)
+    resume = await db.resumes.find_one(
+        {
+            "user_id": user_id,
+            "status": "processed",
+            "extracted_features.extraction_error": {"$exists": False}
+        },
+        sort=[("uploaded_at", -1)]
+    )
+
+    # 2nd try: any processed resume
+    if not resume:
+        resume = await db.resumes.find_one(
+            {"user_id": user_id, "status": "processed"},
+            sort=[("uploaded_at", -1)]
+        )
+
+    if not resume:
+        return None
+
+    # ลอง extracted_features (AI extraction) ก่อน, fallback เป็น extracted_data
+    features = resume.get("extracted_features", resume.get("extracted_data", None))
+
+    # ป้องกัน empty dict หรือ dict ที่มีแค่ error key — ถือว่ายังไม่มีข้อมูล
+    if not features:
+        return None
+
+    # Guard: if features only contains error keys and no real data, skip it
+    real_keys = {"skills", "education", "projects", "certifications", "experience_months"}
+    if not any(k in features for k in real_keys):
+        return None
+
+    # Inject has_cert_files flag
+    if has_cert_files is not None:
+        features["has_cert_files"] = has_cert_files
+    else:
+        # Auto-detect: check if any application by this user has cert files
+        cert_app = await db.applications.find_one({
+            "student_id": user_id,
+            "certificate_urls": {"$exists": True, "$ne": []}
+        })
+        features["has_cert_files"] = cert_app is not None
+
+    # Inject cert_llm_analyses from resume doc so matching_service can use AI cert scoring
+    # (stored by _sync_cert_urls in certificate.py after each upload/delete)
+    cert_llm_analyses = resume.get("cert_llm_analyses")
+    if cert_llm_analyses and isinstance(cert_llm_analyses, list):
+        features["cert_llm_analyses"] = cert_llm_analyses
+    elif not features.get("cert_llm_analyses"):
+        # Fallback: fetch directly from certificates collection (ensures freshness)
+        cert_docs = await db.certificates.find({"user_id": user_id}).to_list(length=50)
+        fresh_analyses = [
+            c["llm_analysis"]
+            for c in cert_docs
+            if c.get("llm_analysis") and isinstance(c.get("llm_analysis"), dict)
+        ]
+        if fresh_analyses:
+            features["cert_llm_analyses"] = fresh_analyses
+
+    return features
+
+
+def transform_job_data(job: dict) -> dict:
+    """แปลง MongoDB document → JSON-serializable dict (ObjectId → str, datetime → ISO)"""
+    if not job:
+        return {}
+
+    def convert_value(value):
+        if isinstance(value, ObjectId):
+            return str(value)
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, dict):
+            return {k: convert_value(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [convert_value(item) for item in value]
+        return value
+
+    result = {}
+    for key, value in job.items():
+        if key == "_id":
+            result["id"] = str(value)
+        else:
+            result[key] = convert_value(value)
+
+    result.setdefault("applications_count", 0)
+    return result
+
+
+def normalize_score(score_0_100: float) -> float:
+    """แปลง score จาก 0-100 → 0-1 (backward compatibility กับ frontend)"""
+    return round(score_0_100 / 100.0, 2)
+
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+
+@router.get("/test")
+async def test_jobs_api():
+    """Health check — แสดงสถานะ API และ SBERT model"""
+    return {
+        "message": "Jobs API Working!",
+        "version": "3.0 - Real AI Matching",
+        "features": ["CRUD Jobs", "Apply", "AI Matching (MatchingService + SBERT)"],
+        "sbert_available": matching_service.sbert_model is not None,
+    }
+
+
+@router.get("/statistics/overview")
+async def get_job_statistics(
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+):
+    """HR/Admin ดูสถิติภาพรวมตำแหน่งงาน"""
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    # สำหรับ HR → กรองเฉพาะงานของบริษัทตัวเอง
+    job_filter = {}
+    if user_type == "HR":
+        user = await db.users.find_one({"_id": ObjectId(current_user["sub"])})
+        if user and user.get("company_id"):
+            job_filter["company_id"] = str(user["company_id"])
+
+    total_jobs = await db.jobs.count_documents(job_filter)
+    active_jobs = await db.jobs.count_documents({**job_filter, "is_active": True})
+
+    # นับ applications
+    job_ids = []
+    async for job in db.jobs.find(job_filter, {"_id": 1}):
+        job_ids.append(str(job["_id"]))
+
+    app_filter = {"job_id": {"$in": job_ids}} if job_ids else {"job_id": "__none__"}
+    total_applications = await db.applications.count_documents(app_filter)
+    pending_applications = await db.applications.count_documents({**app_filter, "status": "pending"})
+
+    return {
+        "overview": {
+            "total_jobs": total_jobs,
+            "active_jobs": active_jobs,
+            "total_applications": total_applications,
+            "pending_applications": pending_applications,
+        }
+    }
+
+
+@router.get("/analytics/detailed")
+async def get_detailed_analytics(
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+    company_id: Optional[str] = Query(None),
+):
+    """HR/Admin ดูสถิติเชิงลึก — Admin สามารถส่ง company_id เพื่อดู dashboard ของบริษัทอื่นได้"""
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    job_filter = {}
+    if user_type == "HR":
+        # HR เห็นเฉพาะบริษัทตัวเอง
+        user = await db.users.find_one({"_id": ObjectId(current_user["sub"])})
+        if user and user.get("company_id"):
+            job_filter["company_id"] = str(user["company_id"])
+    elif user_type == "Admin" and company_id:
+        # Admin ส่ง company_id มา → filter เฉพาะบริษัทนั้น
+        job_filter["company_id"] = company_id
+
+    jobs = await db.jobs.find(job_filter).sort("created_at", -1).to_list(length=100)
+
+    per_job = []
+    total_accepted = 0
+    total_rejected = 0
+    total_pending = 0
+    total_apps = 0
+    all_scores = []
+
+    for job in jobs:
+        jid = str(job["_id"])
+        apps = await db.applications.find({"job_id": jid}).to_list(length=500)
+
+        accepted = sum(1 for a in apps if a.get("status") == "accepted")
+        rejected = sum(1 for a in apps if a.get("status") == "rejected")
+        pending = sum(1 for a in apps if a.get("status") == "pending")
+        scores = [a.get("ai_score", 0) for a in apps if a.get("ai_score") is not None]
+        avg_score = round(sum(scores) / len(scores) * 100, 1) if scores else 0
+
+        total_accepted += accepted
+        total_rejected += rejected
+        total_pending += pending
+        total_apps += len(apps)
+        all_scores.extend(scores)
+
+        per_job.append({
+            "job_id": jid,
+            "title": job.get("title", ""),
+            "is_active": job.get("is_active", False),
+            "total": len(apps),
+            "accepted": accepted,
+            "rejected": rejected,
+            "pending": pending,
+            "avg_ai_score": avg_score,
+        })
+
+    overall_avg = round(sum(all_scores) / len(all_scores) * 100, 1) if all_scores else 0
+    acceptance_rate = round(total_accepted / total_apps * 100, 1) if total_apps else 0
+
+    return {
+        "summary": {
+            "total_jobs": len(jobs),
+            "total_applications": total_apps,
+            "total_accepted": total_accepted,
+            "total_rejected": total_rejected,
+            "total_pending": total_pending,
+            "acceptance_rate": acceptance_rate,
+            "avg_ai_score": overall_avg,
+        },
+        "per_job": per_job,
+    }
+
+
+@router.get("/all-applicants")
+async def get_all_applicants(
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+    search: Optional[str] = Query(None),
+    status_filter: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query("ai_score"),
+    company_id: Optional[str] = Query(None),
+):
+    """HR/Admin ดูผู้สมัครทุกตำแหน่ง — สำหรับ cross-job search"""
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    job_filter = {}
+    if user_type == "HR":
+        user = await db.users.find_one({"_id": ObjectId(current_user["sub"])})
+        if user and user.get("company_id"):
+            job_filter["company_id"] = str(user["company_id"])
+    elif user_type == "Admin" and company_id:
+        job_filter["company_id"] = company_id
+
+    job_ids = []
+    async for job in db.jobs.find(job_filter, {"_id": 1}):
+        job_ids.append(str(job["_id"]))
+
+    if not job_ids:
+        return {"applicants": []}
+
+    app_filter = {"job_id": {"$in": job_ids}}
+    if status_filter and status_filter != "all":
+        app_filter["status"] = status_filter
+
+    sort_field = "ai_score"
+    sort_dir = -1
+    if sort_by == "name":
+        sort_field = "student_name"
+        sort_dir = 1
+    elif sort_by == "date":
+        sort_field = "submitted_at"
+        sort_dir = -1
+
+    applications = await db.applications.find(app_filter).sort(
+        sort_field, sort_dir
+    ).to_list(length=200)
+
+    result = []
+    for app in applications:
+        if search:
+            s = search.lower()
+            name = (app.get("student_name") or "").lower()
+            email = (app.get("student_email") or "").lower()
+            title = (app.get("job_title") or "").lower()
+            if s not in name and s not in email and s not in title:
+                continue
+
+        item = {}
+        for key, value in app.items():
+            if isinstance(value, ObjectId):
+                item[key] = str(value)
+            elif hasattr(value, "isoformat"):
+                item[key] = value.isoformat()
+            else:
+                item[key] = value
+        if "_id" in item:
+            item["id"] = item.pop("_id")
+
+        if not item.get("resume_file_url") and item.get("student_id"):
+            resume = await db.resumes.find_one(
+                {"user_id": item["student_id"]},
+                sort=[("created_at", -1)]
+            )
+            if resume:
+                fp = resume.get("file_path", "")
+                if fp:
+                    item["resume_file_url"] = "/" + fp.replace("\\", "/")
+
+        result.append(item)
+
+    return {"applicants": result}
+
+
+# =============================================================================
+# HR-SPECIFIC JOB LISTING — กรองเฉพาะงานของบริษัทตัวเอง
+# =============================================================================
+
+@router.get("/my-company")
+async def get_my_company_jobs(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    search: Optional[str] = None,
+    department: Optional[str] = None,
+    is_active: Optional[str] = None,
+    company_id: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+):
+    """HR เห็นเฉพาะงานของบริษัทตัวเอง / Admin เห็นทั้งหมดหรือกรองด้วย company_id"""
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    job_filter = {}
+
+    if user_type == "HR":
+        user = await db.users.find_one({"_id": ObjectId(current_user["sub"])})
+        if not user or not user.get("company_id"):
+            raise HTTPException(status_code=403, detail="HR user must be assigned to a company")
+        job_filter["company_id"] = str(user["company_id"])
+    elif user_type == "Admin" and company_id:
+        job_filter["company_id"] = company_id
+
+    if search:
+        job_filter["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"description": {"$regex": search, "$options": "i"}},
+            {"department": {"$regex": search, "$options": "i"}},
+        ]
+    if department:
+        job_filter["department"] = department
+    if is_active is not None:
+        job_filter["is_active"] = is_active.lower() == "true"
+
+    total_count = await db.jobs.count_documents(job_filter)
+    cursor = db.jobs.find(job_filter).sort("created_at", -1).skip(skip).limit(limit)
+    jobs = await cursor.to_list(length=limit)
+
+    jobs_data = []
+    for job in jobs:
+        app_count = await db.applications.count_documents({"job_id": str(job["_id"])})
+        job_dict = transform_job_data(job)
+        job_dict["applications_count"] = app_count
+        jobs_data.append(job_dict)
+
+    return {
+        "jobs": jobs_data,
+        "total_count": total_count,
+    }
+
+
+# =============================================================================
+# AI RECOMMENDATIONS (Student)
+# =============================================================================
+
+@router.get("/recommended/for-me")
+async def get_recommendations(
+    user_id: str = Depends(get_current_user_id),
+    db=Depends(get_database),
+):
+    """แนะนำงานที่เหมาะสม — AI-first (XGBoost v4 + Rule-based fallback)"""
+    resume_features = await get_resume_features(user_id, db)
+    if not resume_features:
+        raise HTTPException(status_code=400, detail="Please upload resume first")
+
+    jobs = await db.jobs.find({"is_active": True}).to_list(length=100)
+
+    green_jobs = []
+    yellow_jobs = []
+
+    for job in jobs:
+        job_requirements = convert_job_to_requirements(job)
+        result = matching_service.calculate_ai_match(resume_features, job_requirements)
+
+        if result.get("model_available"):
+            score = result["xgboost_score"]
+        else:
+            score = result["overall_score"]
+
+        job_data = transform_job_data(job)
+        job_data["ai_match_score"] = normalize_score(score)
+        job_data["ai_method"] = result.get("ai_method", "rule_based")
+        job_data["recommendation_reason"] = result["recommendation"]
+        job_data["matching_breakdown"] = result["breakdown"]
+        job_data["matching_zone"] = result["zone"]
+
+        if score >= 80:
+            green_jobs.append(job_data)
+        elif score >= 50:
+            yellow_jobs.append(job_data)
+
+    return {
+        "green": sorted(green_jobs, key=lambda x: x["ai_match_score"], reverse=True),
+        "yellow": sorted(yellow_jobs, key=lambda x: x["ai_match_score"], reverse=True),
+    }
+
+
+@router.get("/not-ready/for-me")
+async def get_not_ready_jobs(
+    user_id: str = Depends(get_current_user_id),
+    db=Depends(get_database),
+):
+    """งานที่ยังไม่เหมาะสม (Red < 50%) พร้อม Gap Analysis"""
+    resume_features = await get_resume_features(user_id, db)
+    if not resume_features:
+        raise HTTPException(status_code=400, detail="Please upload resume first")
+
+    jobs = await db.jobs.find({"is_active": True}).to_list(length=100)
+
+    red_jobs = []
+
+    for job in jobs:
+        job_requirements = convert_job_to_requirements(job)
+        result = matching_service.calculate_ai_match(resume_features, job_requirements)
+
+        if result.get("model_available"):
+            score = result["xgboost_score"]
+        else:
+            score = result["overall_score"]
+
+        if score >= 50:
+            continue
+
+        gap_result = matching_service.get_gap_analysis(resume_features, job_requirements)
+
+        missing_skills = []
+        for gap in gap_result.get("gaps", []):
+            if "missing" in gap:
+                missing_skills.extend(gap["missing"][:3])
+
+        red_jobs.append({
+            "job_id": str(job["_id"]),
+            "job_title": job.get("title", "Unknown"),
+            "company_name": job.get("company_name", "Unknown"),
+            "score": normalize_score(score),
+            "missing_skills": missing_skills[:5],
+            "recommendations": gap_result.get("recommendations", []),
+            "breakdown": result["breakdown"],
+        })
+
+    return {
+        "jobs": sorted(red_jobs, key=lambda x: x["score"], reverse=True),
+    }
+
+
+@router.get("/my-applications")
+async def get_my_applications(
+    user_id: str = Depends(get_current_user_id),
+    db=Depends(get_database),
+):
+    """Student ดูรายการงานที่สมัครไว้ (เรียงจากใหม่สุด)"""
+    applications = await db.applications.find(
+        {"student_id": user_id}
+    ).sort("submitted_at", -1).to_list(length=100)
+
+    result = []
+    for app in applications:
+        item = {}
+        for key, value in app.items():
+            if isinstance(value, ObjectId):
+                item[key] = str(value)
+            elif hasattr(value, "isoformat"):
+                item[key] = value.isoformat()
+            else:
+                item[key] = value
+
+        if "_id" in item:
+            item["id"] = item.pop("_id")
+
+        job_id = app.get("job_id")
+        if job_id:
+            try:
+                oid = ObjectId(job_id) if isinstance(job_id, str) else job_id
+                job_doc = await db.jobs.find_one({"_id": oid})
+                if job_doc:
+                    item["job_title"] = job_doc.get("title", "ตำแหน่งงาน")
+                    item["company_name"] = job_doc.get("company_name", "บริษัท")
+            except Exception:
+                pass
+
+        result.append(item)
+
+    return result
+
+
+# =============================================================================
+# JOB CRUD (HR/Admin)
+# =============================================================================
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+async def create_job(
+    job: JobCreate,
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+    target_company_id: Optional[str] = Query(None, alias="company_id"),
+):
+    """สร้าง Job posting ใหม่ — เฉพาะ HR/Admin"""
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
+        raise HTTPException(
+            status_code=403,
+            detail=f"HR or Admin only. Your user_type: {user_type}",
+        )
+
+    company_name = "System"
+    company_id = "system"
+    company_logo = None
+
+    if user_type == "HR":
+        user = await db.users.find_one({"_id": ObjectId(current_user["sub"])})
+        if user and user.get("company_id"):
+            company = await db.companies.find_one({"_id": user["company_id"]})
+            if company:
+                company_name = company["name"]
+                company_id = str(company["_id"])
+                company_logo = company.get("logo_url")
+    elif user_type == "Admin" and target_company_id:
+        try:
+            company = await db.companies.find_one({"_id": ObjectId(target_company_id)})
+            if company:
+                company_name = company["name"]
+                company_id = str(company["_id"])
+                company_logo = company.get("logo_url")
+        except Exception:
+            pass
+
+    job_doc = {
+        **job.dict(),
+        "job_code": generate_unique_id("JOB"),
+        "company_id": company_id,
+        "company_name": company_name,
+        **({"company_logo": company_logo} if company_logo else {}),
+        "is_active": True,
+        "applications_count": 0,
+        "created_by": current_user["sub"],
+        "created_at": datetime.now(timezone.utc),
+    }
+
+    result = await db.jobs.insert_one(job_doc)
+    created_job = await db.jobs.find_one({"_id": result.inserted_id})
+
+    return transform_job_data(created_job)
+
+
+@router.get("")
+async def get_jobs(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    search: Optional[str] = None,
+    db=Depends(get_database),
+):
+    """ดูรายการงานทั้งหมด (public, เรียงจากใหม่สุด)"""
+    filter_query = {"is_active": True}
+
+    if search:
+        filter_query["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"description": {"$regex": search, "$options": "i"}},
+            {"company_name": {"$regex": search, "$options": "i"}},
+        ]
+
+    cursor = db.jobs.find(filter_query).sort("created_at", -1).skip(skip).limit(limit)
+    jobs = await cursor.to_list(length=limit)
+
+    result = []
+    for job in jobs:
+        job_dict = transform_job_data(job)
+        # Live count — always reflects actual DB state
+        job_dict["applications_count"] = await db.applications.count_documents({"job_id": job_dict["id"]})
+        result.append(job_dict)
+
+    return result
+
+
+@router.get("/{job_id}")
+async def get_job_detail(
+    job_id: str,
+    current_user: Optional[dict] = Depends(get_current_user_data),
+    db=Depends(get_database),
+):
+    """ดูรายละเอียดงาน (public)"""
+    if not ObjectId.is_valid(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job ID")
+
+    job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job_dict = transform_job_data(job)
+    # Live count — always reflects actual DB state
+    job_dict["applications_count"] = await db.applications.count_documents({"job_id": job_dict["id"]})
+    return job_dict
+
+
+@router.put("/{job_id}")
+async def update_job(
+    job_id: str,
+    job_update: JobUpdate,
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+):
+    """แก้ไข Job — เฉพาะ HR (เฉพาะบริษัทตัวเอง) หรือ Admin"""
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    if not ObjectId.is_valid(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job ID")
+
+    existing_job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+    if not existing_job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # HR สามารถแก้ไขได้เฉพาะ job ของบริษัทตัวเอง
+    if user_type == "HR":
+        user = await db.users.find_one({"_id": ObjectId(current_user["sub"])})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user_company_id = user.get("company_id")
+        if not user_company_id:
+            raise HTTPException(status_code=403, detail="HR user must be assigned to a company")
+
+        if str(existing_job.get("company_id")) != str(user_company_id):
+            raise HTTPException(status_code=403, detail="You can only edit jobs from your company")
+
+    update_data = job_update.dict(exclude_unset=True)
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    result = await db.jobs.update_one(
+        {"_id": ObjectId(job_id)},
+        {"$set": update_data},
+    )
+
+    if result.modified_count == 0:
+        return {"message": "No changes made", "job_id": job_id}
+
+    logger.info("[Jobs] Updated job %s by %s", job_id, current_user.get("email"))
+    return {"message": "Job updated successfully", "job_id": job_id}
+
+
+@router.delete("/{job_id}")
+async def delete_job(
+    job_id: str,
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+):
+    """Soft delete — เปลี่ยน is_active เป็น False"""
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    if not ObjectId.is_valid(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job ID")
+
+    # HR: ต้องเป็น job ของบริษัทตัวเองเท่านั้น
+    if user_type == "HR":
+        job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        user = await db.users.find_one({"_id": ObjectId(current_user["sub"])})
+        if not user or not user.get("company_id"):
+            raise HTTPException(status_code=403, detail="HR user must be assigned to a company")
+
+        if str(job.get("company_id")) != str(user["company_id"]):
+            raise HTTPException(status_code=403, detail="You can only delete jobs from your company")
+
+    await db.jobs.update_one(
+        {"_id": ObjectId(job_id)},
+        {"$set": {"is_active": False}},
+    )
+
+    return {"message": "Job deleted successfully"}
+
+
+# =============================================================================
+# APPLICATION (Student)
+# =============================================================================
+
+@router.post("/{job_id}/apply")
+async def apply_job(
+    job_id: str,
+    application: ApplicationCreate,
+    user_id: str = Depends(get_current_user_id),
+    db=Depends(get_database),
+):
+    """Student สมัครงาน — คำนวณ AI match score อัตโนมัติ"""
+    if not ObjectId.is_valid(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job ID")
+
+    job = await db.jobs.find_one({"_id": ObjectId(job_id), "is_active": True})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # ตรวจสอบว่าสมัครซ้ำหรือไม่
+    existing = await db.applications.find_one({
+        "job_id": job_id,
+        "student_id": user_id,
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Already applied")
+
+    # ดึงข้อมูล user
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # ตรวจสอบเบอร์โทรศัพท์
+    if not user.get("phone"):
+        raise HTTPException(
+            status_code=400,
+            detail="PHONE_REQUIRED"
+        )
+
+    # คำนวณ AI score — XGBoost v4 เป็นหลัก, fallback rule-based
+    # Inject has_cert_files based on this application's certificate_urls
+    has_cert_files = bool(application.certificate_urls and len(application.certificate_urls) > 0)
+    resume_features = await get_resume_features(user_id, db, has_cert_files=has_cert_files) or {}
+    job_requirements = convert_job_to_requirements(job)
+    match_result = matching_service.calculate_ai_match(resume_features, job_requirements)
+
+    # ใช้ XGBoost score เป็นหลัก
+    if match_result.get("model_available"):
+        ai_score = normalize_score(match_result["xgboost_score"])
+    else:
+        ai_score = normalize_score(match_result["overall_score"])
+    ai_feedback = match_result["recommendation"]
+    ai_method = match_result.get("ai_method", "rule_based")
+
+    # ดึง resume file path สำหรับ HR ดู PDF
+    resume_doc = await db.resumes.find_one(
+        {"user_id": user_id},
+        sort=[("created_at", -1)]
+    )
+    resume_file_url = ""
+    if resume_doc:
+        fp = resume_doc.get("file_path", "")
+        if fp:
+            resume_file_url = "/" + fp.replace("\\", "/")
+
+    app_doc = {
+        **application.dict(),
+        "application_code": generate_unique_id("APP"),
+        "job_id": job_id,
+        "job_title": job.get("title", "Unknown"),
+        "company_name": job.get("company_name", "Unknown"),
+        "student_id": user_id,
+        "student_name": user.get("full_name", user.get("username", "Unknown")),
+        "student_email": user.get("email", ""),
+        "resume_data": resume_features,
+        "resume_file_url": resume_file_url,
+        "certificate_urls": application.certificate_urls,
+        "status": "pending",
+        "ai_score": ai_score,
+        "ai_method": ai_method,
+        "ai_feedback": ai_feedback,
+        "xgboost_score": match_result.get("xgboost_score"),
+        "xgboost_decision": match_result.get("xgboost_decision"),
+        "xgboost_probability": match_result.get("xgboost_probability"),
+        "matching_breakdown": match_result.get("breakdown", {}),
+        "matching_zone": match_result.get("zone", ""),
+        "submitted_at": datetime.now(timezone.utc),
+    }
+
+    result = await db.applications.insert_one(app_doc)
+
+    await db.jobs.update_one(
+        {"_id": ObjectId(job_id)},
+        {"$inc": {"applications_count": 1}},
+    )
+
+    logger.info("[Jobs] User %s applied to job %s (score: %s)", user_id, job_id, ai_score)
+
+    return {"message": "Applied successfully", "application_id": str(result.inserted_id)}
+
+
+# =============================================================================
+# HR VIEW APPLICANTS
+# =============================================================================
+
+@router.get("/{job_id}/applicants")
+async def get_applicants(
+    job_id: str,
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+):
+    """HR/Admin ดูรายชื่อผู้สมัคร (เรียงตาม AI score สูงสุด)"""
+    user_type = current_user.get("user_type")
+    if user_type not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    if not ObjectId.is_valid(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job ID")
+
+    # ดึงข้อมูล job
+    job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # HR: ต้องเป็น job ของบริษัทตัวเองเท่านั้น
+    if user_type == "HR":
+        user = await db.users.find_one({"_id": ObjectId(current_user["sub"])})
+        if not user or not user.get("company_id"):
+            raise HTTPException(status_code=403, detail="HR user must be assigned to a company")
+
+        if str(job.get("company_id")) != str(user["company_id"]):
+            raise HTTPException(status_code=403, detail="You can only view applicants for your company's jobs")
+
+    job_info = {
+        "title": job.get("title", "ตำแหน่งงาน"),
+        "company_name": job.get("company_name", "บริษัท"),
+        "department": job.get("department", ""),
+    }
+
+    applications = await db.applications.find(
+        {"job_id": job_id}
+    ).sort("ai_score", -1).to_list(length=100)
+
+    result = []
+    for app in applications:
+        item = {}
+        for key, value in app.items():
+            if isinstance(value, ObjectId):
+                item[key] = str(value)
+            elif hasattr(value, "isoformat"):
+                item[key] = value.isoformat()
+            else:
+                item[key] = value
+
+        if "_id" in item:
+            item["id"] = item.pop("_id")
+
+        student_id = item.get("student_id")
+
+        # ─── Backfill resume_file_url + cert_llm_analyses from resume doc ───
+        resume = None
+        if student_id and (not item.get("resume_file_url") or not item.get("cert_llm_analyses")):
+            resume = await db.resumes.find_one(
+                {"user_id": student_id, "status": "processed"},
+                sort=[("uploaded_at", -1)]
+            )
+            # Fallback to any resume if processed not found
+            if not resume:
+                resume = await db.resumes.find_one(
+                    {"user_id": student_id},
+                    sort=[("created_at", -1)]
+                )
+
+        if resume:
+            if not item.get("resume_file_url"):
+                fp = resume.get("file_path", "")
+                if fp:
+                    item["resume_file_url"] = "/" + fp.replace("\\", "/")
+            # Always overwrite with latest cert_llm_analyses from resume doc
+            cert_analyses = resume.get("cert_llm_analyses")
+            if cert_analyses and isinstance(cert_analyses, list) and not item.get("cert_llm_analyses"):
+                item["cert_llm_analyses"] = cert_analyses
+
+        # ─── Inject certificate_urls from certificates collection ───
+        if student_id and not item.get("certificate_urls"):
+            cert_docs = await db.certificates.find(
+                {"user_id": student_id}
+            ).to_list(length=20)
+            if cert_docs:
+                cert_urls = []
+                for c in cert_docs:
+                    fp = c.get("file_path") or c.get("file_url") or ""
+                    if fp:
+                        url = "/" + fp.replace("\\", "/") if not fp.startswith("/") else fp
+                        cert_urls.append(url)
+                if cert_urls:
+                    item["certificate_urls"] = cert_urls
+                # Also inject cert_llm_analyses if still missing
+                if not item.get("cert_llm_analyses"):
+                    analyses = [c["llm_analysis"] for c in cert_docs if c.get("llm_analysis")]
+                    if analyses:
+                        item["cert_llm_analyses"] = analyses
+
+        result.append(item)
+
+    return {"job": job_info, "applicants": result}
+
+
+
+
+@router.put("/applications/{app_id}")
+async def update_application_status(
+    app_id: str,
+    body: dict,
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+):
+    """HR/Admin ตัดสินใจรับ/ปฏิเสธผู้สมัคร — เก็บ reason + ai_breakdown สำหรับ XGBoost"""
+    if current_user.get("user_type") not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    new_status = body.get("status")
+    reason = body.get("reason", "")
+
+    if new_status not in ["accepted", "rejected"]:
+        raise HTTPException(status_code=400, detail="Invalid status. Use 'accepted' or 'rejected'")
+
+    if not ObjectId.is_valid(app_id):
+        raise HTTPException(status_code=400, detail="Invalid application ID")
+
+    # ดึง application เดิมเพื่อเก็บ ai_breakdown snapshot
+    application = await db.applications.find_one({"_id": ObjectId(app_id)})
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # สร้าง update data พร้อม XGBoost training fields
+    update_data = {
+        "status": new_status,
+        "hr_decision": new_status,
+        "hr_reason": reason,
+        "decided_at": datetime.now(timezone.utc),
+        "decided_by": current_user["sub"],
+        "ai_score_at_decision": application.get("ai_score", 0),
+    }
+
+    # เก็บ ai_breakdown snapshot ตอนตัดสินใจ (training features สำหรับ XGBoost)
+    resume_data = application.get("resume_data", {})
+    if resume_data:
+        update_data["ai_breakdown_at_decision"] = {
+            "skills": resume_data.get("skills_score", 0),
+            "education": resume_data.get("education_score", 0),
+            "experience": resume_data.get("experience_score", 0),
+            "projects": resume_data.get("projects_score", 0),
+            "gpa": resume_data.get("gpa_score", 0),
+        }
+
+    # ถ้ามี matching_breakdown จาก apply_job ให้ใช้แทน
+    if application.get("matching_breakdown"):
+        update_data["ai_breakdown_at_decision"] = application["matching_breakdown"]
+
+    # Save 14 granular features for XGBoost v4 training
+    try:
+        job_doc = await db.jobs.find_one({"_id": ObjectId(application.get("job_id"))})
+        if resume_data and job_doc:
+            from services.matching_service import MatchingService
+            matcher = MatchingService()
+            job_req = convert_job_to_requirements(job_doc)
+            xgb_features = matcher.extract_xgboost_features(resume_data, job_req)
+            update_data["xgboost_features_at_decision"] = xgb_features
+    except Exception as feat_err:
+        logger.warning("[HR] Failed to extract XGBoost features: %s", feat_err)
+
+    result = await db.applications.update_one(
+        {"_id": ObjectId(app_id)},
+        {"$set": update_data},
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # --- Add status_history entry for timeline ---
+    await db.applications.update_one(
+        {"_id": ObjectId(app_id)},
+        {"$push": {
+            "status_history": {
+                "status": new_status,
+                "at": datetime.now(timezone.utc).isoformat(),
+                "by": current_user["sub"],
+                "reason": reason,
+            }
+        }},
+    )
+
+    # --- Create notification for the student ---
+    try:
+        from services.notification_service import NotificationService
+        notif_svc = NotificationService(db)
+        await notif_svc.create_application_notification(
+            student_id=application.get("student_id", ""),
+            application_id=app_id,
+            job_title=application.get("job_title", "ตำแหน่งงาน"),
+            company_name=application.get("company_name", "บริษัท"),
+            new_status=new_status,
+            hr_reason=reason,
+        )
+    except Exception as notif_err:
+        logger.warning("[Notification] Failed to create: %s", notif_err)
+
+    logger.info("[HR] %s %s application %s (reason: %s)",
+                current_user["sub"], new_status, app_id, reason or "none")
+
+    return {"message": f"Application {new_status}", "status": new_status}
+
+
+# =============================================================================
+# INTERVIEW SCHEDULING
+# =============================================================================
+
+@router.put("/applications/{app_id}/schedule-interview")
+async def schedule_interview(
+    app_id: str,
+    body: dict,
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+):
+    """HR กำหนดนัดสัมภาษณ์ — วันที่/เวลา/สถานที่/ช่องทาง"""
+    if current_user.get("user_type") not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    if not ObjectId.is_valid(app_id):
+        raise HTTPException(status_code=400, detail="Invalid application ID")
+
+    application = await db.applications.find_one({"_id": ObjectId(app_id)})
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if application.get("status") != "accepted":
+        raise HTTPException(status_code=400, detail="Application must be accepted first")
+
+    interview_date = body.get("interview_date")
+    interview_time = body.get("interview_time")
+    interview_location = body.get("interview_location", "")
+    interview_method = body.get("interview_method", "onsite")
+    interview_link = body.get("interview_link", "")
+    interview_note = body.get("interview_note", "")
+
+    if not interview_date or not interview_time:
+        raise HTTPException(status_code=400, detail="interview_date and interview_time required")
+
+    interview_data = {
+        "interview": {
+            "date": interview_date,
+            "time": interview_time,
+            "location": interview_location,
+            "method": interview_method,
+            "link": interview_link,
+            "note": interview_note,
+            "status": "scheduled",
+            "scheduled_by": current_user["sub"],
+            "scheduled_at": datetime.now(timezone.utc).isoformat(),
+            "reschedule_count": 0,
+        }
+    }
+
+    await db.applications.update_one(
+        {"_id": ObjectId(app_id)},
+        {"$set": interview_data},
+    )
+
+    # Add to status_history
+    await db.applications.update_one(
+        {"_id": ObjectId(app_id)},
+        {"$push": {
+            "status_history": {
+                "status": "interview_scheduled",
+                "at": datetime.now(timezone.utc).isoformat(),
+                "by": current_user["sub"],
+                "reason": f"นัดสัมภาษณ์ {interview_date} เวลา {interview_time}",
+            }
+        }},
+    )
+
+    # Notification
+    try:
+        from services.notification_service import NotificationService
+        svc = NotificationService(db)
+        await svc.create_application_notification(
+            student_id=application.get("student_id", ""),
+            application_id=app_id,
+            job_title=application.get("job_title", "ตำแหน่งงาน"),
+            company_name=application.get("company_name", "บริษัท"),
+            new_status="interview",
+            hr_reason=f"นัดสัมภาษณ์ {interview_date} เวลา {interview_time} ({interview_method})",
+        )
+    except Exception as e:
+        logger.warning("[Notification] Interview schedule failed: %s", e)
+
+    logger.info("[HR] Scheduled interview for app %s on %s %s", app_id, interview_date, interview_time)
+
+    return {"message": "Interview scheduled", "interview": interview_data["interview"]}
+
+
+@router.put("/applications/{app_id}/interview-response")
+async def interview_response(
+    app_id: str,
+    body: dict,
+    user_id: str = Depends(get_current_user_id),
+    db=Depends(get_database),
+):
+    """Student ยืนยัน/ขอเลื่อนนัดสัมภาษณ์"""
+    if not ObjectId.is_valid(app_id):
+        raise HTTPException(status_code=400, detail="Invalid application ID")
+
+    application = await db.applications.find_one({"_id": ObjectId(app_id)})
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if application.get("student_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not your application")
+
+    interview = application.get("interview")
+    if not interview:
+        raise HTTPException(status_code=400, detail="No interview scheduled")
+
+    action = body.get("action")  # "confirm" or "reschedule"
+
+    if action == "confirm":
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$set": {"interview.status": "confirmed", "interview.confirmed_at": datetime.now(timezone.utc).isoformat()}},
+        )
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$push": {"status_history": {
+                "status": "interview_confirmed",
+                "at": datetime.now(timezone.utc).isoformat(),
+                "by": user_id,
+                "reason": "นักศึกษายืนยันนัดสัมภาษณ์",
+            }}},
+        )
+        return {"message": "Interview confirmed"}
+
+    elif action == "reschedule":
+        # Check ≥4 days before interview
+        try:
+            interview_dt = datetime.fromisoformat(interview["date"])
+            days_until = (interview_dt - datetime.now(timezone.utc)).days
+            if days_until < 4:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"ไม่สามารถขอเลื่อนได้ (เหลือ {days_until} วัน ต้องขอก่อนอย่างน้อย 4 วัน)"
+                )
+        except (ValueError, TypeError):
+            pass  # If date parse fails, allow reschedule
+
+        # Check max 1 reschedule
+        if interview.get("reschedule_count", 0) >= 1:
+            raise HTTPException(status_code=400, detail="ขอเลื่อนได้สูงสุด 1 ครั้ง")
+
+        reschedule_reason = body.get("reason", "")
+        preferred_date = body.get("preferred_date", "")
+
+        if not reschedule_reason:
+            raise HTTPException(status_code=400, detail="กรุณาระบุเหตุผลในการขอเลื่อน")
+
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$set": {
+                "interview.status": "reschedule_requested",
+                "interview.reschedule_reason": reschedule_reason,
+                "interview.preferred_date": preferred_date,
+                "interview.reschedule_requested_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$push": {"status_history": {
+                "status": "reschedule_requested",
+                "at": datetime.now(timezone.utc).isoformat(),
+                "by": user_id,
+                "reason": reschedule_reason,
+            }}},
+        )
+
+        return {"message": "Reschedule requested"}
+
+    raise HTTPException(status_code=400, detail="Invalid action. Use 'confirm' or 'reschedule'")
+
+
+@router.put("/applications/{app_id}/approve-reschedule")
+async def approve_reschedule(
+    app_id: str,
+    body: dict,
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database),
+):
+    """HR อนุมัติเลื่อนนัดสัมภาษณ์ — กำหนดวันใหม่"""
+    if current_user.get("user_type") not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="HR or Admin only")
+
+    if not ObjectId.is_valid(app_id):
+        raise HTTPException(status_code=400, detail="Invalid application ID")
+
+    application = await db.applications.find_one({"_id": ObjectId(app_id)})
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    interview = application.get("interview")
+    if not interview or interview.get("status") != "reschedule_requested":
+        raise HTTPException(status_code=400, detail="No reschedule request pending")
+
+    action = body.get("action")  # "approve" or "deny"
+
+    if action == "approve":
+        new_date = body.get("interview_date")
+        new_time = body.get("interview_time")
+        if not new_date or not new_time:
+            raise HTTPException(status_code=400, detail="New date and time required")
+
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$set": {
+                "interview.date": new_date,
+                "interview.time": new_time,
+                "interview.location": body.get("interview_location", interview.get("location", "")),
+                "interview.method": body.get("interview_method", interview.get("method", "onsite")),
+                "interview.link": body.get("interview_link", interview.get("link", "")),
+                "interview.status": "rescheduled",
+                "interview.reschedule_count": interview.get("reschedule_count", 0) + 1,
+                "interview.rescheduled_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$push": {"status_history": {
+                "status": "interview_rescheduled",
+                "at": datetime.now(timezone.utc).isoformat(),
+                "by": current_user["sub"],
+                "reason": f"เลื่อนเป็น {new_date} เวลา {new_time}",
+            }}},
+        )
+
+        # Notify student
+        try:
+            from services.notification_service import NotificationService
+            svc = NotificationService(db)
+            await svc.create_application_notification(
+                student_id=application.get("student_id", ""),
+                application_id=app_id,
+                job_title=application.get("job_title", "ตำแหน่งงาน"),
+                company_name=application.get("company_name", "บริษัท"),
+                new_status="interview",
+                hr_reason=f"อนุมัติเลื่อนนัด → {new_date} เวลา {new_time}",
+            )
+        except Exception as e:
+            logger.warning("[Notification] Reschedule approve failed: %s", e)
+
+        return {"message": "Reschedule approved"}
+
+    elif action == "deny":
+        await db.applications.update_one(
+            {"_id": ObjectId(app_id)},
+            {"$set": {
+                "interview.status": "scheduled",
+                "interview.reschedule_count": interview.get("reschedule_count", 0) + 1,
+            }},
+        )
+        # Notify student
+        try:
+            from services.notification_service import NotificationService
+            svc = NotificationService(db)
+            await svc.create_application_notification(
+                student_id=application.get("student_id", ""),
+                application_id=app_id,
+                job_title=application.get("job_title", "ตำแหน่งงาน"),
+                company_name=application.get("company_name", "บริษัท"),
+                new_status="interview",
+                hr_reason="ไม่อนุมัติเลื่อนนัด — กรุณามาตามนัดเดิม",
+            )
+        except Exception as e:
+            logger.warning("[Notification] Reschedule deny failed: %s", e)
+
+        return {"message": "Reschedule denied"}
+
+    raise HTTPException(status_code=400, detail="Invalid action. Use 'approve' or 'deny'")
+
+
+# =============================================================================
+# CERTIFICATE VERIFICATION (HR/Admin)
+# =============================================================================
+
+@router.put("/applications/{app_id}/verify-certificates")
+async def verify_certificates(
+    app_id: str,
+    action: dict = Body(..., example={"is_verified": True, "note": "Verified relevant certificates"}),
+    current_user: dict = Depends(get_current_user_data),
+    db=Depends(get_database)
+):
+    """(HR/Admin) ยืนยันความถูกต้องของใบรับรอง — AI จะคำนวณคะแนนใหม่อัตโนมัติ"""
+    if current_user.get("user_type") not in ["HR", "Admin"]:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ดำเนินการ")
+
+    try:
+        app_obj_id = ObjectId(app_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="รูปแบบ Application ID ไม่ถูกต้อง")
+
+    application = await db.applications.find_one({"_id": app_obj_id})
+    if not application:
+        raise HTTPException(status_code=404, detail="ไม่พบใบสมัคร")
+
+    is_verified = action.get("is_verified", True)
+    note = action.get("note", "")
+
+    update_data = {
+        "certificate_verification": {
+            "status": "verified" if is_verified else "unverified",
+            "note": note,
+            "verified_by": current_user.get("sub", ""),
+            "verified_at": datetime.now(timezone.utc),
+        }
+    }
+
+    # เมื่อ HR verify cert แล้ว → AI คำนวณคะแนนใหม่ด้วย has_cert_files=True
+    if is_verified:
+        user_id = application.get("student_id")
+        job_id = application.get("job_id")
+
+        if user_id and job_id:
+            try:
+                job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+                if job:
+                    resume_features = await get_resume_features(user_id, db, has_cert_files=True) or {}
+                    job_requirements = convert_job_to_requirements(job)
+                    match_result = matching_service.calculate_ai_match(resume_features, job_requirements)
+
+                    update_data["ai_score"] = match_result.get("overall_score", application.get("ai_score", 0))
+                    update_data["matching_breakdown"] = match_result.get("breakdown", {})
+                    update_data["ai_method"] = "xgboost_v4_cert_verified"
+
+                    logger.info(
+                        "[AI] Recalculated score after cert verify for app %s: %.1f%%",
+                        app_id, update_data["ai_score"]
+                    )
+            except Exception as e:
+                logger.warning("[Certificate] Failed to recalculate score after verify: %s", e)
+
+    await db.applications.update_one(
+        {"_id": app_obj_id},
+        {"$set": update_data}
+    )
+
+    return {"message": "บันทึกการตรวจสอบใบรับรองสำเร็จ", "is_verified": is_verified}

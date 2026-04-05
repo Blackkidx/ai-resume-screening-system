@@ -1,9 +1,0 @@
-็HR
-hr1@techvision.example.com
-hr2@datapro.example.com
-hr3@netsecure.example.com
-hr4@appnova.example.com
-
-ADMIN
-admindontedit@gmail.com
-admin@internscreen.com
